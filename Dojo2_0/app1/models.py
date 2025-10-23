@@ -2893,3 +2893,39 @@ class Option(models.Model):
     
 
 # end levelrevision
+
+
+# Operator observancesheet 
+
+
+
+from django.db import models
+
+class Topic(models.Model):
+    sr_no = models.IntegerField(unique=True)
+    topic_name = models.CharField(max_length=255)
+    description = models.TextField()
+
+    def __str__(self):
+        return f"{self.sr_no} - {self.topic_name}"
+
+class OperatorObservanceSheet(models.Model):
+    operator_name = models.CharField(max_length=255)
+    operator_category = models.CharField(max_length=255, blank=True, null=True)
+    process_name = models.CharField(max_length=255)
+    supervisor_name = models.CharField(max_length=255)
+    evaluation_start_date = models.DateField()
+    evaluation_end_date = models.DateField()
+    level = models.CharField(max_length=20)  # e.g. 'Level 2', 'Level 3', 'Level 4'
+    marks = models.JSONField()  # { "1": { "D1": "O", "D2": "X", ... }, "2": ... }
+    remarks = models.TextField(blank=True, null=True)
+    score = models.CharField(max_length=20, blank=True, null=True)
+    marks_obtained = models.CharField(max_length=20, blank=True, null=True)
+    value = models.CharField(max_length=20, blank=True, null=True)
+    result = models.CharField(max_length=20, blank=True, null=True)
+    signatures = models.JSONField(default=dict, blank=True, null=True)
+    topics = models.ManyToManyField(Topic, related_name='observance_sheets', blank=True)
+    
+    def __str__(self):
+        return f"{self.operator_name} ({self.level})"
+

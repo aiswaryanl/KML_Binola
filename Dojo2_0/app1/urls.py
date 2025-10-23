@@ -15,8 +15,9 @@ from .views import (
     TenCycleSubTopicViewSet,
     TenCyclePassingCriteriaViewSet,
     OperatorPerformanceEvaluationViewSet,
-    EvaluationSubTopicMarksViewSet,TenCycleConfigurationViewSet
+    EvaluationSubTopicMarksViewSet,TenCycleConfigurationViewSet,TopicViewSet,OperatorObservanceSheetViewSet
 )
+from .views import get_sheet_by_operator_level_station
 
 
 
@@ -162,7 +163,9 @@ router.register(r"qualityevaluations", QualityEvaluationViewSet)
 router.register(r"qualitysequences", QualitySequenceViewSet)
 
 router.register(r'questions', QuestionViewSet)
-
+# operator observance sheet
+router.register(r'topics', TopicViewSet, basename='topic')
+router.register(r'observancesheets', OperatorObservanceSheetViewSet, basename='observancesheet')
 
 urlpatterns = [
 
@@ -277,6 +280,10 @@ urlpatterns = [
     path("employee-skill-search/", EmployeeSkillSearch.as_view(), name="employee-skill-search"), 
 
     path('levels/<int:level_pk>/criteria/', EvaluationCriterionViewSet.as_view({'get': 'list'}), name='level-criteria'),
+    # path('observancesheets/operator/<str:operator_name>/', get_sheet_by_operator, name='get-sheet-by-operator'),
+    path('observancesheets/operator/<str:operator_name>/level/<str:level>/station/<str:station_name>/',
+     get_sheet_by_operator_level_station, name='get-sheet-by-operator-level-station'),
+
 
 
 

@@ -3079,3 +3079,19 @@ class QuestionSerializer(serializers.ModelSerializer):
         return instance
     
 # end revision
+
+# Operator observance sheet 
+
+from rest_framework import serializers
+from .models import Topic, OperatorObservanceSheet
+
+class TopicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Topic
+        fields = ['id', 'sr_no', 'topic_name', 'description']  # Added 'id'
+
+class OperatorObservanceSheetSerializer(serializers.ModelSerializer):
+    topics = TopicSerializer(many=True, read_only=True)
+    class Meta:
+        model = OperatorObservanceSheet
+        fields = '__all__'
