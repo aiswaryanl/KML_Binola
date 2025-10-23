@@ -9373,4 +9373,60 @@ class QuestionViewSet(viewsets.ModelViewSet):
         return queryset
 # end
 
+# operatorobservance sheet 
 
+from rest_framework import viewsets
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from rest_framework import status
+from .models import Topic, OperatorObservanceSheet
+from .serializers import TopicSerializer, OperatorObservanceSheetSerializer
+
+class TopicViewSet(viewsets.ModelViewSet):
+    queryset = Topic.objects.all().order_by('sr_no')
+    serializer_class = TopicSerializer
+    lookup_field = 'sr_no'
+class OperatorObservanceSheetViewSet(viewsets.ModelViewSet):
+    queryset = OperatorObservanceSheet.objects.all()
+    serializer_class = OperatorObservanceSheetSerializer
+
+# @api_view(['GET'])
+# def get_sheet_by_operator(request, operator_name):
+#     try:
+#         sheet = OperatorObservanceSheet.objects.filter(operator_name=operator_name).last()
+#         if not sheet:
+#             return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+#         serializer = OperatorObservanceSheetSerializer(sheet)
+#         return Response(serializer.data)
+#     except Exception as e:
+#         return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+# @api_view(['GET'])
+# def get_sheet_by_operator_level_station(request, operator_name, level,process_name):
+#     try:
+#         sheet = OperatorObservanceSheet.objects.filter(
+#             operator_name=operator_name,
+#             level=level,
+#             process_name=process_name
+#         ).last()
+#         if not sheet:
+#             return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+#         serializer = OperatorObservanceSheetSerializer(sheet)
+#         return Response(serializer.data)
+#     except Exception as e:
+#         return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['GET'])
+def get_sheet_by_operator_level_station(request, operator_name, level, station_name):
+    try:
+        sheet = OperatorObservanceSheet.objects.filter(
+            operator_name=operator_name,
+            level=level,
+            process_name=station_name
+        ).last()
+        if not sheet:
+            return Response({"detail": "Not found"}, status=status.HTTP_404_NOT_FOUND)
+        serializer = OperatorObservanceSheetSerializer(sheet)
+        return Response(serializer.data)
+    except Exception as e:
+        return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)

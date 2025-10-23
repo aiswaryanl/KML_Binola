@@ -19,7 +19,7 @@ import RoleManagement from './RoleManagement';
 import TenCyclePage from '../TenCycle/TenCycleMethodPage';
 import Levels from './Levelsetting';
 import CriteriaManagement from './SkillEvaluationCriteria';
-
+import TopicManagement from './Operatorobservancesheet'
 
 
 const tabs = [
@@ -39,7 +39,7 @@ const tabs = [
   { key: 'ten-cycle-method', label: '10 Cycle Settings', icon: '🔟'},
   { key: 'Level-Settings', label: 'Level  Settings' },
   { key: 'Skill-Evaluation-Criteria', label: 'Skill Evaluation Criteria' },
-
+  { key: 'Operator-Observance-Sheet',label:'Operator Observance Sheet' },
 
 
 
@@ -153,7 +153,7 @@ const MethodPage: React.FC = () => {
               {activeTab === 'ten-cycle-method' && <TenCyclePage />}
               {activeTab === 'Level-Settings' && <Levels/>}
               {activeTab === 'Skill-Evaluation-Criteria' && <CriteriaManagement/>}
-
+              {activeTab === 'Operator-Observance-Sheet' && <TopicManagement/>}
             </div>
           </div>
         </div>

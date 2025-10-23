@@ -79,6 +79,7 @@ import ProductivityQualitySearch from './components/pages/Level1/Searchbar/Produ
 import ProductivitySheet from './components/pages/Level1/SkillEvaluationSheet/ProductivitySheet/ProductivitySheet';
 import QualitySheet from './components/pages/Level1/SkillEvaluationSheet/QualitySheet/QualitySheet';
 import CriteriaManagement from './components/pages/method/SkillEvaluationCriteria';
+import TopicManagement from './components/pages/method/Operatorobservancesheet'
 import OperatorObservanceCheckSheet from './components/pages/OperatorObservance/OperatorObservance';
 import Level1revision from './components/pages/Level1/level1revisioon/level1revision';
 
