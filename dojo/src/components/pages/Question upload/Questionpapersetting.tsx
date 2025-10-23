@@ -1,4 +1,5 @@
 
+
 import React, { useEffect, useState } from 'react';
 import { Toaster, toast } from 'react-hot-toast';
 import {
@@ -8,10 +9,85 @@ import {
   Calendar, Clock, FileText, Sparkles
 } from 'lucide-react';
 
+// --- Interfaces from Advanced (adapted) ---
+interface Station {
+  station_id: number;
+  station_name: string;
+}
+
+interface Subline {
+  subline_id: number;
+  subline_name: string;
+  stations: Station[];
+}
+
+interface Line {
+  line_id: number;
+  line_name: string;
+  sublines: Subline[];
+  stations: Station[];
+}
+
+interface Department {
+  department_id: number;
+  department_name: string;
+  lines: Line[];
+  stations: Station[];
+}
+
+interface FactoryStructure {
+  factory_id: number;
+  factory_name: string;
+  hq: number;
+  departments: Department[];
+}
+
+// --- API Interfaces from Advanced (adapted) ---
+interface ApiStation {
+  id: number;
+  station_name: string;
+}
+
+interface ApiSubline {
+  id: number;
+  subline_name: string;
+  stations: ApiStation[];
+}
+
+interface ApiLine {
+  id: number;
+  line_name: string;
+  sublines: ApiSubline[];
+  stations: ApiStation[];
+}
+
+interface ApiDepartment {
+  id: number;
+  department_name: string;
+  lines: ApiLine[];
+  stations: ApiStation[];
+}
+
+interface ApiStructureData {
+  hq_name: string;
+  factory_name: string;
+  departments: ApiDepartment[];
+}
+
+interface ApiHierarchyResponseItem {
+  structure_id: number;
+  structure_name: string;
+  hq: number;
+  hq_name: string;
+  factory: number;
+  factory_name: string;
+  structure_data: ApiStructureData;
+}
+
 // ==================================================================================
-// API SERVICE (No changes here)
+// API SERVICE (Updated to use hierarchy fetch, removed separate fetches for lines/sublines/stations)
 // ==================================================================================
-const API_BASE_URL = 'http://localhost:8000/';
+const API_BASE_URL = 'http://127.0.0.1:8000/';
 
 const apiService = {
   async apiCall(endpoint: string, options: RequestInit = {}) {
@@ -45,12 +121,8 @@ const apiService = {
     return res.json();
   },
 
-  fetchDepartments: () => apiService.apiCall('departments/'),
-  fetchLines: () => apiService.apiCall('lines/'),
-  fetchSublines: () => apiService.apiCall('sublines/'),
-  fetchStations: () => apiService.apiCall('stations/'),
+  fetchHierarchy: () => apiService.apiCall('hierarchy-simple/'),
   fetchLevels: () => apiService.apiCall('levels/'),
-
   fetchQuestionPapers: () => apiService.apiCall('questionpapers/'),
   createQuestionPaper: (form: FormData) => apiService.formCall('questionpapers/', 'POST', form),
   updateQuestionPaper: (id: number, form: FormData) => apiService.formCall(`questionpapers/${id}/`, 'PUT', form),
@@ -58,14 +130,11 @@ const apiService = {
 };
 
 // ==================================================================================
-// TYPES (No changes here)
+// TYPES (Updated to use SelectOption)
 // ==================================================================================
 interface SelectOption { id: number; name: string; }
 interface FormOptions {
   departments: SelectOption[];
-  lines: SelectOption[];
-  sublines: SelectOption[];
-  stations: SelectOption[];
   levels: SelectOption[];
 }
 interface QuestionPaperFormData {
@@ -103,7 +172,7 @@ interface RawQuestionPaper {
 }
 
 // ==================================================================================
-// UI HELPERS (Enhanced styling)
+// UI HELPERS (No changes)
 // ==================================================================================
 const Spinner = ({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) => {
   const sizeClasses = { sm: 'h-4 w-4', md: 'h-6 w-6', lg: 'h-8 w-8' };
@@ -182,7 +251,7 @@ const CustomSelectInput = ({
 );
 
 // ==================================================================================
-// QuestionPaperCard (Enhanced styling)
+// QuestionPaperCard (No changes)
 // ==================================================================================
 const QuestionPaperCard = ({ 
   paper, 
@@ -272,19 +341,204 @@ const QuestionPaperCard = ({
 );
 
 // ==================================================================================
-// HOOKS (No changes)
+// HOOKS (Updated to fetch and process hierarchy like in Advanced)
 // ==================================================================================
-const useFormOptions = () => { const [options, setOptions] = useState<FormOptions>({ departments: [], lines: [], sublines: [], stations: [], levels: [], }); const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null); useEffect(() => { const fetchAll = async () => { try { const [departments, lines, sublines, stations, levels] = await Promise.all([ apiService.fetchDepartments(), apiService.fetchLines(), apiService.fetchSublines(), apiService.fetchStations(), apiService.fetchLevels(), ]); setOptions({ departments: (departments || []).map((d: any) => ({ id: d.department_id, name: d.department_name })), lines: (lines || []).map((l: any) => ({ id: l.line_id, name: l.line_name })), sublines: (sublines || []).map((s: any) => ({ id: s.subline_id, name: s.subline_name })), stations: (stations || []).map((s: any) => ({ id: s.station_id, name: s.station_name })), levels: (levels || []).map((lv: any) => ({ id: lv.level_id, name: lv.level_name })), }); } catch (e) { setError('Failed to load dropdown options.'); } finally { setLoading(false); } }; fetchAll(); }, []); return { options, loading, error }; };
-const useQuestionPapers = (options: FormOptions, optionsLoading: boolean) => { const [papers, setPapers] = useState<QuestionPaper[]>([]); const [rawPapers, setRawPapers] = useState<RawQuestionPaper[]>([]); const [loading, setLoading] = useState(true); const [error, setError] = useState<string | null>(null); const fetchPapers = async () => { setLoading(true); try { const data = await apiService.fetchQuestionPapers(); const results = Array.isArray(data) ? data : data?.results || []; setRawPapers(results); } catch (e) { setError('Failed to load question papers.'); } }; const deletePaper = async (id: number) => { try { await apiService.deleteQuestionPaper(id); await fetchPapers(); toast.success('Question paper deleted successfully'); } catch (e) { /* error handled in apiService */ } }; useEffect(() => { if (optionsLoading || rawPapers.length === 0) { if (rawPapers.length > 0) setLoading(true); return; } const deptMap = new Map(options.departments.map(o => [o.id, o])); const lineMap = new Map(options.lines.map(o => [o.id, o])); const subMap = new Map(options.sublines.map(o => [o.id, o])); const stationMap = new Map(options.stations.map(o => [o.id, o])); const levelMap = new Map(options.levels.map(o => [o.id, o])); // ... continuing from where it was cut off ...
+const useFormOptions = () => {
+  const [departments, setDepartments] = useState<Department[]>([]);
+  const [levels, setLevels] = useState<SelectOption[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-const hydrated = rawPapers.map((r) => ({ ...r, department: deptMap.get(r.department) || { id: r.department, name: 'N/A' }, line: lineMap.get(r.line) || { id: r.line, name: 'N/A' }, subline: subMap.get(r.subline) || { id: r.subline, name: 'N/A' }, station: stationMap.get(r.station) || { id: r.station, name: 'N/A' }, level: levelMap.get(r.level) || { id: r.level, name: 'N/A' }, })) as QuestionPaper[]; setPapers(hydrated); setLoading(false); }, [rawPapers, options, optionsLoading]); useEffect(() => { fetchPapers(); }, []); return { papers, loading, error, refetch: fetchPapers, deletePaper }; };
+  useEffect(() => {
+    const fetchAndProcess = async () => {
+      try {
+        const [apiData, levelData] = await Promise.all([
+          apiService.fetchHierarchy(),
+          apiService.fetchLevels(),
+        ]);
+
+        const factoriesMap = new Map<number, FactoryStructure>();
+        const hqMap = new Map<number, string>(); // Not used, but kept for completeness
+
+        apiData.forEach((item: ApiHierarchyResponseItem) => {
+          if (item.hq && item.hq_name && !hqMap.has(item.hq)) {
+            hqMap.set(item.hq, item.hq_name);
+          }
+
+          if (!item.factory || !item.factory_name) return;
+
+          let factory = factoriesMap.get(item.factory);
+          if (!factory) {
+            factory = {
+              factory_id: item.factory,
+              factory_name: item.factory_name,
+              hq: item.hq,
+              departments: [],
+            };
+            factoriesMap.set(item.factory, factory);
+          }
+
+          item.structure_data?.departments?.forEach((deptData: ApiDepartment) => {
+            if (!deptData.id || !deptData.department_name) return;
+
+            let department = factory.departments.find(d => d.department_id === deptData.id);
+            if (!department) {
+              department = {
+                department_id: deptData.id,
+                department_name: deptData.department_name,
+                lines: [],
+                stations: [],
+              };
+              factory.departments.push(department);
+            }
+
+            deptData.stations?.forEach((stationData: ApiStation) => {
+              const stationExists = department.stations.some(s => s.station_id === stationData.id);
+              if (!stationExists) {
+                department.stations.push({
+                  station_id: stationData.id,
+                  station_name: stationData.station_name,
+                });
+              }
+            });
+
+            deptData.lines?.forEach((lineData: ApiLine) => {
+              if (!lineData.id || !lineData.line_name) return;
+              
+              let line = department.lines.find(l => l.line_id === lineData.id);
+              if (!line) {
+                line = {
+                  line_id: lineData.id,
+                  line_name: lineData.line_name,
+                  sublines: [],
+                  stations: []
+                };
+                department.lines.push(line);
+              }
+              
+              lineData.stations?.forEach((stationData: ApiStation) => {
+                const stationExists = line.stations.some(s => s.station_id === stationData.id);
+                if (!stationExists) {
+                  line.stations.push({ station_id: stationData.id, station_name: stationData.station_name });
+                }
+              });
+
+              lineData.sublines?.forEach((sublineData: ApiSubline) => {
+                if (!sublineData.id || !sublineData.subline_name) return;
+
+                let subline = line.sublines.find(sl => sl.subline_id === sublineData.id);
+                if (!subline) {
+                  subline = {
+                    subline_id: sublineData.id,
+                    subline_name: sublineData.subline_name,
+                    stations: []
+                  };
+                  line.sublines.push(subline);
+                }
+
+                sublineData.stations?.forEach((stationData: ApiStation) => {
+                  const stationExists = subline.stations.some(s => s.station_id === stationData.id);
+                  if (!stationExists) {
+                    subline.stations.push({ station_id: stationData.id, station_name: stationData.station_name });
+                  }
+                });
+              });
+            });
+          });
+        });
+
+        const nestedStructures = Array.from(factoriesMap.values());
+        const allDepartments = nestedStructures.flatMap(f => f.departments);
+        setDepartments(allDepartments);
+
+        setLevels((levelData || []).map((lv: any) => ({ id: lv.level_id, name: lv.level_name })));
+
+      } catch (e) {
+        setError('Failed to load dropdown options.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAndProcess();
+  }, []);
+
+  return { departments, levels, loading, error };
+};
+
+const useQuestionPapers = (departments: Department[], levels: SelectOption[], optionsLoading: boolean) => {
+  const [papers, setPapers] = useState<QuestionPaper[]>([]);
+  const [rawPapers, setRawPapers] = useState<RawQuestionPaper[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchPapers = async () => {
+    setLoading(true);
+    try {
+      const data = await apiService.fetchQuestionPapers();
+      const results = Array.isArray(data) ? data : data?.results || [];
+      setRawPapers(results);
+    } catch (e) {
+      setError('Failed to load question papers.');
+    }
+  };
+
+  const deletePaper = async (id: number) => {
+    try {
+      await apiService.deleteQuestionPaper(id);
+      await fetchPapers();
+      toast.success('Question paper deleted successfully');
+    } catch (e) {
+      /* error handled in apiService */
+    }
+  };
+
+  useEffect(() => {
+    if (optionsLoading || rawPapers.length === 0) {
+      if (rawPapers.length > 0) setLoading(true);
+      return;
+    }
+
+    // Compute flat maps from hierarchy
+    const allLines = departments.flatMap(d => d.lines);
+    const allSublines = allLines.flatMap(l => l.sublines);
+    const allStations = [
+      ...departments.flatMap(d => d.stations),
+      ...allLines.flatMap(l => l.stations),
+      ...allSublines.flatMap(sl => sl.stations)
+    ];
+    const uniqueStations = Array.from(new Map(allStations.map(s => [s.station_id, s])).values());
+
+    const deptMap = new Map(departments.map(d => [d.department_id, { id: d.department_id, name: d.department_name }]));
+    const lineMap = new Map(allLines.map(l => [l.line_id, { id: l.line_id, name: l.line_name }]));
+    const subMap = new Map(allSublines.map(sl => [sl.subline_id, { id: sl.subline_id, name: sl.subline_name }]));
+    const stationMap = new Map(uniqueStations.map(s => [s.station_id, { id: s.station_id, name: s.station_name }]));
+    const levelMap = new Map(levels.map(o => [o.id, o]));
+
+    const hydrated = rawPapers.map((r) => ({
+      ...r,
+      department: deptMap.get(r.department) || { id: r.department, name: 'N/A' },
+      line: lineMap.get(r.line) || { id: r.line, name: 'N/A' },
+      subline: subMap.get(r.subline) || { id: r.subline, name: 'N/A' },
+      station: stationMap.get(r.station) || { id: r.station, name: 'N/A' },
+      level: levelMap.get(r.level) || { id: r.level, name: 'N/A' },
+    })) as QuestionPaper[];
+    setPapers(hydrated);
+    setLoading(false);
+  }, [rawPapers, departments, levels, optionsLoading]);
+
+  useEffect(() => {
+    fetchPapers();
+  }, []);
+
+  return { papers, loading, error, refetch: fetchPapers, deletePaper };
+};
 
 // ==================================================================================
-// MAIN COMPONENT (Enhanced styling)
+// MAIN COMPONENT (Updated with hierarchical cascading dropdowns)
 // ==================================================================================
 const QuestionPaperManager: React.FC = () => {
-  const { options, loading: optionsLoading, error: optionsError } = useFormOptions();
-  const { papers, loading: papersLoading, refetch, deletePaper } = useQuestionPapers(options, optionsLoading);
+  const { departments, levels, loading: optionsLoading, error: optionsError } = useFormOptions();
+  const { papers, loading: papersLoading, refetch, deletePaper } = useQuestionPapers(departments, levels, optionsLoading);
 
   const [activeTab, setActiveTab] = useState<'create' | 'list'>('list');
   const [editingPaper, setEditingPaper] = useState<QuestionPaper | null>(null);
@@ -307,10 +561,16 @@ const QuestionPaperManager: React.FC = () => {
     if (optionsError) toast.error(optionsError);
   }, [optionsError]);
 
-  // ---------- SIMPLE handleChange: no special-case for any level ----------
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (name === 'department') {
+      setFormData(prev => ({ ...prev, line: '', subline: '', station: '' }));
+    } else if (name === 'line') {
+      setFormData(prev => ({ ...prev, subline: '', station: '' }));
+    } else if (name === 'subline') {
+      setFormData(prev => ({ ...prev, station: '' }));
+    }
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -326,7 +586,6 @@ const QuestionPaperManager: React.FC = () => {
     setEditingPaper(null);
   };
 
-  // ---------- ALWAYS include location fields (no Level-1 conditional) ----------
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -335,8 +594,6 @@ const QuestionPaperManager: React.FC = () => {
     
     form.append('question_paper_name', formData.question_paper_name);
     form.append('level', formData.level);
-
-    // Always include location fields
     form.append('department', formData.department);
     form.append('line', formData.line);
     form.append('subline', formData.subline);
@@ -394,6 +651,24 @@ const QuestionPaperManager: React.FC = () => {
 
   const isListLoading = papersLoading || optionsLoading;
 
+  // Compute dynamic options for cascading dropdowns
+  const deptOptions: SelectOption[] = departments.map(d => ({ id: d.department_id, name: d.department_name }));
+  const selectedDeptId = formData.department ? parseInt(formData.department) : null;
+  const selectedDept = departments.find(d => d.department_id === selectedDeptId);
+  const lineOptions: SelectOption[] = selectedDept ? selectedDept.lines.map(l => ({ id: l.line_id, name: l.line_name })) : [];
+  const selectedLineId = formData.line ? parseInt(formData.line) : null;
+  const selectedLine = selectedDept?.lines.find(l => l.line_id === selectedLineId);
+  const sublineOptions: SelectOption[] = selectedLine ? selectedLine.sublines.map(sl => ({ id: sl.subline_id, name: sl.subline_name })) : [];
+  const selectedSublineId = formData.subline ? parseInt(formData.subline) : null;
+  const selectedSubline = selectedLine?.sublines.find(sl => sl.subline_id === selectedSublineId);
+  const stationOptions: SelectOption[] = (() => {
+    let stations: Station[] = [];
+    if (selectedSubline) stations = selectedSubline.stations;
+    else if (selectedLine) stations = selectedLine.stations;
+    else if (selectedDept) stations = selectedDept.stations;
+    return stations.map(s => ({ id: s.station_id, name: s.station_name }));
+  })();
+
   return (
     <>
       <Toaster 
@@ -420,7 +695,7 @@ const QuestionPaperManager: React.FC = () => {
       />
       <div className="bg-gradient-to-br from-gray-50 via-white to-indigo-50 min-h-screen">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-          {/* Enhanced Header */}
+          {/* Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 gap-4">
             <div className="flex items-center gap-4">
               <div className="bg-gradient-to-br from-indigo-500 to-purple-600 p-4 rounded-2xl shadow-lg">
@@ -467,7 +742,7 @@ const QuestionPaperManager: React.FC = () => {
 
           {activeTab === 'list' ? (
             <div className="space-y-6">
-              {/* Enhanced Search Bar */}
+              {/* Search Bar */}
               <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                 <div className="flex flex-col sm:flex-row gap-4 items-center">
                   <div className="w-full sm:flex-1 relative group">
@@ -487,7 +762,7 @@ const QuestionPaperManager: React.FC = () => {
                       className="w-full p-3 border-2 border-gray-200 rounded-xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-500 transition-all duration-200 appearance-none cursor-pointer"
                     >
                       <option value="">All Departments</option>
-                      {options.departments.map((dept) => (
+                      {deptOptions.map((dept) => (
                         <option key={`filter-dept-${dept.id}`} value={String(dept.id)}>
                           {dept.name}
                         </option>
@@ -504,7 +779,7 @@ const QuestionPaperManager: React.FC = () => {
                 </div>
               </div>
 
-              {/* Enhanced Content Area */}
+              {/* Content Area */}
               {isListLoading ? (
                 <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl shadow-lg border border-gray-100">
                   <Spinner size="lg" />
@@ -575,7 +850,7 @@ const QuestionPaperManager: React.FC = () => {
                       name="level"
                       value={formData.level}
                       onChange={handleChange}
-                      options={options.levels}
+                      options={levels}
                       loading={optionsLoading}
                       icon={Trophy}
                     />
@@ -585,7 +860,7 @@ const QuestionPaperManager: React.FC = () => {
                       name="department"
                       value={formData.department}
                       onChange={handleChange}
-                      options={options.departments}
+                      options={deptOptions}
                       loading={optionsLoading}
                       icon={Building2}
                     />
@@ -595,9 +870,10 @@ const QuestionPaperManager: React.FC = () => {
                       name="line"
                       value={formData.line}
                       onChange={handleChange}
-                      options={options.lines}
+                      options={lineOptions}
                       loading={optionsLoading}
                       icon={Factory}
+                      disabled={!formData.department || lineOptions.length === 0}
                     />
 
                     <CustomSelectInput
@@ -605,9 +881,10 @@ const QuestionPaperManager: React.FC = () => {
                       name="subline"
                       value={formData.subline}
                       onChange={handleChange}
-                      options={options.sublines}
+                      options={sublineOptions}
                       loading={optionsLoading}
                       icon={Gauge}
+                      disabled={!formData.line || sublineOptions.length === 0}
                     />
 
                     <CustomSelectInput
@@ -615,13 +892,13 @@ const QuestionPaperManager: React.FC = () => {
                       name="station"
                       value={formData.station}
                       onChange={handleChange}
-                      options={options.stations}
+                      options={stationOptions}
                       loading={optionsLoading}
                       icon={MapPin}
+                      disabled={stationOptions.length === 0}
                     />
 
-                    {/* Enhanced File Upload */}
-                    <div className="md:col-span-2">
+                    {/* <div className="md:col-span-2">
                       <label className="block text-sm font-semibold text-gray-700 mb-2">
                         Upload File (Optional)
                       </label>
@@ -691,10 +968,9 @@ const QuestionPaperManager: React.FC = () => {
                           </p>
                         </div>
                       )}
-                    </div>
+                    </div> */}
                   </div>
 
-                  {/* Enhanced Form Actions */}
                   <div className="flex items-center justify-between gap-4 mt-10 pt-8 border-t-2 border-gray-100">
                     <div className="text-sm text-gray-500">
                       <p className="flex items-center gap-2">

@@ -10,9 +10,95 @@ def run_after_delay(func, delay, *args, **kwargs):
     timer.start()
 
 
+# def update_skill_matrix(employee, station, level, verbose=True):
+#     """
+#     Update SkillMatrix when both OJT and Evaluation are passed
+#     """
+#     if verbose:
+#         print("=" * 80)
+#         print(f"[SkillMatrix] Checking update for Employee: {employee.emp_id}, "
+#               f"Station: {station.station_name if station else '❌ None'}, "
+#               f"Level: {level.level_name if level else '❌ None'}")
+
+#     # ✅ Get TraineeInfo
+#     trainee_info = TraineeInfo.objects.filter(emp_id=employee.emp_id).first()
+#     if not trainee_info:
+#         if verbose:
+#             print(f"[SkillMatrix][ERROR] No TraineeInfo found for Employee: {employee.emp_id}")
+#             print("=" * 80)
+#         return
+
+#     if verbose:
+#         print(f"[SkillMatrix] Found TraineeInfo → Name: {trainee_info.trainee_name}, "
+#               f"Status: {trainee_info.status}, DOJ: {trainee_info.doj}")
+
+#     # -------------------------
+#     # Check if OJT is passed
+#     # -------------------------
+#     ojt_pass = False
+#     if trainee_info.status == "Pass":
+#         ojt_exists = OJTScore.objects.filter(
+#             trainee__emp_id=employee.emp_id,
+#             topic__level=level
+#         ).exists()
+#         ojt_pass = ojt_exists
+#         if verbose:
+#             print(f"[SkillMatrix] OJT status=Pass, OJTScore exists for this level: {ojt_exists}")
+#     else:
+#         if verbose:
+#             print(f"[SkillMatrix] OJT not passed → Trainee status is {trainee_info.status}")
+
+#     if verbose:
+#         print(f"[SkillMatrix] Final OJT passed = {ojt_pass}")
+
+#     # -------------------------
+#     # Check if Evaluation is passed
+#     # -------------------------
+#     eval_pass = Score.objects.filter(
+#         employee=employee,
+#         skill=station,
+#         level=level,
+#         passed=True
+#     ).exists()
+#     if verbose:
+#         print(f"[SkillMatrix] Evaluation passed = {eval_pass}")
+
+#     # -------------------------
+#     # Update or create SkillMatrix
+#     # -------------------------
+#     if ojt_pass and eval_pass:
+#         hierarchy = HierarchyStructure.objects.filter(station=station).first()
+#         if not hierarchy:
+#             if verbose:
+#                 print(f"[SkillMatrix][ERROR] No HierarchyStructure found for Station: {station.station_name}")
+#                 print("=" * 80)
+#             return
+
+#         obj, created = SkillMatrix.objects.update_or_create(
+#             employee=employee,
+#             level=level,
+#             defaults={
+#                 "employee_name": trainee_info.trainee_name,
+#                 "emp_id": trainee_info.emp_id,
+#                 "doj": trainee_info.doj,
+#                 "hierarchy": hierarchy,
+#             }
+#         )
+#         if verbose:
+#             if created:
+#                 print(f"[SkillMatrix] ✅ SkillMatrix created for Employee: {employee.emp_id}")
+#             else:
+#                 print(f"[SkillMatrix] 🔄 SkillMatrix updated for Employee: {employee.emp_id}")
+#     else:
+#         if verbose:
+#             print(f"[SkillMatrix] ❌ Not updating. Conditions → OJT: {ojt_pass}, Eval: {eval_pass}")
+
+#     if verbose:
+#         print("=" * 80)
 def update_skill_matrix(employee, station, level, verbose=True):
     """
     Update SkillMatrix when both OJT and Evaluation are passed
+    Update SkillMatrix when OJT (for THIS station/level), Evaluation, AND Ten Cycle are all passed
     """
     if verbose:
         print("=" * 80)
@@ -21,10 +107,21 @@ def update_skill_matrix(employee, station, level, verbose=True):
               f"Level: {level.level_name if level else '❌ None'}")
 
     # ✅ Get TraineeInfo
-    trainee_info = TraineeInfo.objects.filter(emp_id=employee.emp_id).first()
+
+    # ✅ Get TraineeInfo (Needed for name/doj and general status logging)
+    # Filter by emp_id AND the specific station being certified to get the relevant record.
+    # If the TraineeInfo record is unique per employee, we must fetch the correct one.
+    # Since TraineeInfo has a ForeignKey to Station, we must use the 'station' parameter.
+
+    # trainee_info = TraineeInfo.objects.filter(emp_id=employee.emp_id).first()
+    
+    trainee_info = TraineeInfo.objects.filter(emp_id=employee.emp_id, station=station).first()
+    
     if not trainee_info:
         if verbose:
-            print(f"[SkillMatrix][ERROR] No TraineeInfo found for Employee: {employee.emp_id}")
+            # print(f"[SkillMatrix][ERROR] No TraineeInfo found for Employee: {employee.emp_id}")
+            print(f"[SkillMatrix][ERROR] No TraineeInfo found for Employee: {employee.emp_id} at Station: {station.station_name}")
+            # If no TraineeInfo exists for this station/skill, OJT cannot be complete.
             print("=" * 80)
         return
 
@@ -33,17 +130,31 @@ def update_skill_matrix(employee, station, level, verbose=True):
               f"Status: {trainee_info.status}, DOJ: {trainee_info.doj}")
 
     # -------------------------
-    # Check if OJT is passed
+    # Check if OJT is passed for THIS Station/Level
     # -------------------------
     ojt_pass = False
+    
+    # CRITICAL CHANGE: We rely on the TraineeInfo.status only if it applies to this station.
+    # The TraineeInfoViewSet logic is now responsible for setting this status correctly 
+    # based on OJT scores associated with this trainee/station.
     if trainee_info.status == "Pass":
-        ojt_exists = OJTScore.objects.filter(
+
+        # Additional Sanity Check: Ensure there's a score linked to the trainee for the target level.
+        # This prevents a scenario where the status was manually set to 'Pass' without any scores.
+        # ojt_exists = OJTScore.objects.filter(
+
+        ojt_exists_for_station_level = OJTScore.objects.filter(
+            # Filter by the TraineeInfo instance, which is already scoped by station in the fetch above.
             trainee__emp_id=employee.emp_id,
             topic__level=level
         ).exists()
-        ojt_pass = ojt_exists
+        # ojt_pass = ojt_exists
+
+        # OJT is passed only if the trainee's status is "Pass" AND scores actually exist for this level.
+        ojt_pass = ojt_exists_for_station_level
         if verbose:
-            print(f"[SkillMatrix] OJT status=Pass, OJTScore exists for this level: {ojt_exists}")
+            # print(f"[SkillMatrix] OJT status=Pass, OJTScore exists for this level: {ojt_exists}")
+            print(f"[SkillMatrix] OJT status is {trainee_info.status}. OJTScore exists for THIS trainee/level: {ojt_exists_for_station_level}")
     else:
         if verbose:
             print(f"[SkillMatrix] OJT not passed → Trainee status is {trainee_info.status}")
@@ -76,12 +187,15 @@ def update_skill_matrix(employee, station, level, verbose=True):
 
         obj, created = SkillMatrix.objects.update_or_create(
             employee=employee,
-            level=level,
+            # level=level,
+            hierarchy=hierarchy,
             defaults={
                 "employee_name": trainee_info.trainee_name,
                 "emp_id": trainee_info.emp_id,
                 "doj": trainee_info.doj,
-                "hierarchy": hierarchy,
+                # "hierarchy": hierarchy,
+                "level":level,
+
             }
         )
         if verbose:
@@ -100,21 +214,44 @@ def update_skill_matrix(employee, station, level, verbose=True):
 # -------------------------
 # Signal for OJTScore
 # -------------------------
+# @receiver(post_save, sender=OJTScore)
+# def update_skill_on_ojt_save(sender, instance, **kwargs):
+#     print(f"[Signal][OJTScore] Saved → Trainee {instance.trainee.emp_id}, Score={instance.score}, Topic={instance.topic}")
+#     try:
+#         employee = MasterTable.objects.get(emp_id=instance.trainee.emp_id)
+#         station = Station.objects.get(station_name=instance.trainee.station)
+#     except MasterTable.DoesNotExist:
+#         print(f"[Signal][ERROR] MasterTable not found for emp_id: {instance.trainee.emp_id}")
+#         return
+#     except Station.DoesNotExist:
+#         print(f"[Signal][ERROR] Station not found: {instance.trainee.station}")
+#         return
+
+#     # ⏳ Delay 5 seconds before running the update
+#     run_after_delay(update_skill_matrix, 5, employee, station, instance.topic.level, True)
 @receiver(post_save, sender=OJTScore)
 def update_skill_on_ojt_save(sender, instance, **kwargs):
     print(f"[Signal][OJTScore] Saved → Trainee {instance.trainee.emp_id}, Score={instance.score}, Topic={instance.topic}")
     try:
         employee = MasterTable.objects.get(emp_id=instance.trainee.emp_id)
-        station = Station.objects.get(station_name=instance.trainee.station)
+        if not instance.trainee.station:
+            print(f"[Signal][ERROR] No station for trainee {instance.trainee.emp_id}")
+            return
+            
+        # --- CHANGE THIS ---
+        # Instead of getting the ID, get the whole object.
+        station_object = instance.trainee.station 
+        
     except MasterTable.DoesNotExist:
         print(f"[Signal][ERROR] MasterTable not found for emp_id: {instance.trainee.emp_id}")
         return
-    except Station.DoesNotExist:
-        print(f"[Signal][ERROR] Station not found: {instance.trainee.station}")
+    except Exception as e:
+        print(f"[Signal][ERROR] Station access failed: {e}")
         return
 
-    # ⏳ Delay 5 seconds before running the update
-    run_after_delay(update_skill_matrix, 5, employee, station, instance.topic.level, True)
+    # --- AND CHANGE THIS ---
+    # Pass the full station_object to the function.
+    run_after_delay(update_skill_matrix, 5, employee, station_object, instance.topic.level, True)
 
 
 # -------------------------

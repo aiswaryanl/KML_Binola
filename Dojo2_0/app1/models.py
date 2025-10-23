@@ -1185,20 +1185,37 @@ class OJTTopic(models.Model):
 
 # ------------------ Trainee Info ------------------
 
+# class TraineeInfo(models.Model):
+#     trainee_name = models.CharField(max_length=100)
+#     trainer_id = models.CharField(max_length=50)
+#     emp_id = models.CharField(max_length=50,null=True, blank=True,)
+#     line = models.CharField(max_length=100)
+#     subline = models.CharField(max_length=100)
+#     station = models.CharField(max_length=100)
+#     process_name = models.CharField(max_length=100)
+#     revision_date = models.DateField()
+#     doj = models.DateField()
+#     trainer_name = models.CharField(max_length=100)
+#     status = models.CharField(max_length=50, default="Pending")
+
+#     def str(self):
+#         return f"{self.trainee_name} ({self.emp_id})"
+
+
 class TraineeInfo(models.Model):
     trainee_name = models.CharField(max_length=100)
     trainer_id = models.CharField(max_length=50)
-    emp_id = models.CharField(max_length=50,null=True, blank=True,)
+    emp_id = models.CharField(max_length=50, null=True, blank=True)
     line = models.CharField(max_length=100)
     subline = models.CharField(max_length=100)
-    station = models.CharField(max_length=100)
+    station = models.ForeignKey('Station', on_delete=models.CASCADE, related_name='trainees')
     process_name = models.CharField(max_length=100)
     revision_date = models.DateField()
     doj = models.DateField()
     trainer_name = models.CharField(max_length=100)
     status = models.CharField(max_length=50, default="Pending")
 
-    def str(self):
+    def __str__(self):
         return f"{self.trainee_name} ({self.emp_id})"
 
 

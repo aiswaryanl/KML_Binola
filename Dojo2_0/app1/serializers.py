@@ -1299,16 +1299,66 @@ class OJTScoreSerializer(serializers.ModelSerializer):
         fields = ["id", "topic", "day", "score"]
 
 
+# class TraineeInfoSerializer(serializers.ModelSerializer):
+#     scores = OJTScoreSerializer(many=True, write_only=True)
+#     scores_data = OJTScoreSerializer(source="scores", many=True, read_only=True)
+
+#     class Meta:
+#         model = TraineeInfo
+#         fields = [
+#             "id", "trainee_name", "trainer_id", "emp_id",
+#             "line", "subline", "station", "process_name",
+#             "revision_date", "doj", "trainer_name", "status",
+#             "scores", "scores_data"
+#         ]
+
+#     def create(self, validated_data):
+#         scores_data = validated_data.pop("scores", [])
+#         trainee = TraineeInfo.objects.create(**validated_data)
+
+#         for score_data in scores_data:
+#             # ✅ Create instance first, then call save() to trigger status update
+#             score = OJTScore(trainee=trainee, **score_data)
+#             score.save()  # This MUST call the custom save() method
+
+#         # 🔄 Force refresh trainee from database to get updated status
+#         trainee.refresh_from_db()
+#         return trainee
+
+#     def update(self, instance, validated_data):
+#         scores_data = validated_data.pop("scores", [])
+
+#         # Update trainee fields
+#         for attr, value in validated_data.items():
+#             setattr(instance, attr, value)
+#         instance.save()
+
+#         # Replace scores
+#         instance.scores.all().delete()
+#         for score_data in scores_data:
+#             score = OJTScore(trainee=instance, **score_data)
+#             score.save()  # This MUST call the custom save() method
+
+#         # 🔄 Force refresh trainee from database to get updated status  
+#         instance.refresh_from_db()
+#         return instance
+    
+from rest_framework import serializers
+from rest_framework.exceptions import ValidationError
+from .models import TraineeInfo, OJTScore, Station
+
 class TraineeInfoSerializer(serializers.ModelSerializer):
     scores = OJTScoreSerializer(many=True, write_only=True)
     scores_data = OJTScoreSerializer(source="scores", many=True, read_only=True)
+    station = serializers.PrimaryKeyRelatedField(queryset=Station.objects.all())  # Handles station_id
+    station_name = serializers.CharField(source="station.station_name", read_only=True)  # Displays station name
 
     class Meta:
         model = TraineeInfo
         fields = [
             "id", "trainee_name", "trainer_id", "emp_id",
-            "line", "subline", "station", "process_name",
-            "revision_date", "doj", "trainer_name", "status",
+            "line", "subline", "station", "station_name",
+            "process_name", "revision_date", "doj", "trainer_name", "status",
             "scores", "scores_data"
         ]
 
@@ -1317,33 +1367,26 @@ class TraineeInfoSerializer(serializers.ModelSerializer):
         trainee = TraineeInfo.objects.create(**validated_data)
 
         for score_data in scores_data:
-            # ✅ Create instance first, then call save() to trigger status update
             score = OJTScore(trainee=trainee, **score_data)
-            score.save()  # This MUST call the custom save() method
+            score.save()
 
-        # 🔄 Force refresh trainee from database to get updated status
         trainee.refresh_from_db()
         return trainee
 
     def update(self, instance, validated_data):
         scores_data = validated_data.pop("scores", [])
 
-        # Update trainee fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
-        # Replace scores
         instance.scores.all().delete()
         for score_data in scores_data:
             score = OJTScore(trainee=instance, **score_data)
-            score.save()  # This MUST call the custom save() method
+            score.save()
 
-        # 🔄 Force refresh trainee from database to get updated status  
         instance.refresh_from_db()
         return instance
-    
-
 
 from rest_framework import serializers
 from .models import QuantityOJTScoreRange, QuantityPassingCriteria
