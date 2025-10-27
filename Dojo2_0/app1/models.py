@@ -1801,14 +1801,36 @@ class CompanyLogo(models.Model):
 # ==================== Retraining starts ======================== #
 
 
+# class RetrainingConfig(models.Model):
+#     level = models.ForeignKey(Level, on_delete=models.CASCADE, related_name='retraining_configs')
+#     evaluation_type = models.CharField(
+#         max_length=20, 
+#         choices=[
+#             ('Evaluation', 'Evaluation'),
+#             ('OJT', 'OJT'),
+#             ('10 Cycle', '10 Cycle')
+#         ]
+#     )
+#     max_count = models.PositiveIntegerField(default=2)
+#     created_at = models.DateTimeField(auto_now_add=True)
+#     updated_at = models.DateTimeField(auto_now=True)
+
+#     class Meta:
+#         unique_together = ('level', 'evaluation_type')
+
+#     def _str_(self):
+#         return f"{self.level.level_name} - {self.evaluation_type} (Max: {self.max_count})"
+
 class RetrainingConfig(models.Model):
     level = models.ForeignKey(Level, on_delete=models.CASCADE, related_name='retraining_configs')
     evaluation_type = models.CharField(
-        max_length=20, 
+        max_length=30,  # Increased length to accommodate longer names
         choices=[
             ('Evaluation', 'Evaluation'),
             ('OJT', 'OJT'),
-            ('10 Cycle', '10 Cycle')
+            ('10 Cycle', '10 Cycle'),
+            ('Operator Observance', 'Operator Observance'),
+            ('Skill Evaluation Level 2', 'Skill Evaluation Level 2'),
         ]
     )
     max_count = models.PositiveIntegerField(default=2)
@@ -1818,27 +1840,55 @@ class RetrainingConfig(models.Model):
     class Meta:
         unique_together = ('level', 'evaluation_type')
 
-    def _str_(self):
+    def __str__(self):
         return f"{self.level.level_name} - {self.evaluation_type} (Max: {self.max_count})"
 
+# class RetrainingSession(models.Model):
+#     employee = models.ForeignKey(MasterTable, on_delete=models.CASCADE, related_name='retraining_sessions')
+#     level = models.ForeignKey(Level, on_delete=models.CASCADE, related_name='retraining_sessions')
+#     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='retraining_sessions')
+#     station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name='retraining_sessions',null=True, blank=True)
+#     evaluation_type = models.CharField(
+#         max_length=20, 
+#         choices=[
+#             ('Evaluation', 'Evaluation'),
+#             ('OJT', 'OJT'),
+#             ('10 Cycle', '10 Cycle')
+#         ]
+#     )
+#     scheduled_date = models.DateField()
+#     scheduled_time = models.TimeField()
+#     venue = models.CharField(max_length=128)
+#     status = models.CharField(max_length=16, choices=[('Pending','Pending'),('Completed','Completed'),('Missed','Missed')], default='Pending')
+#     attempt_no = models.PositiveIntegerField(default=1)
+#     performance_percentage = models.FloatField(null=True, blank=True)
+#     required_percentage = models.FloatField(null=True, blank=True)
+#     created_at = models.DateTimeField(auto_now_add=True)
 
+#     class Meta:
+#         ordering = ['employee', 'evaluation_type', 'level', 'department', 'station', 'attempt_no']
+
+#     def _str_(self):
+#         return f"{self.employee.emp_id} - {self.level.level_name}/{self.department.department_name}/{self.station.station_name} - {self.evaluation_type} (Attempt {self.attempt_no})"
 class RetrainingSession(models.Model):
     employee = models.ForeignKey(MasterTable, on_delete=models.CASCADE, related_name='retraining_sessions')
     level = models.ForeignKey(Level, on_delete=models.CASCADE, related_name='retraining_sessions')
     department = models.ForeignKey(Department, on_delete=models.CASCADE, related_name='retraining_sessions')
-    station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name='retraining_sessions',null=True, blank=True)
+    station = models.ForeignKey(Station, on_delete=models.CASCADE, related_name='retraining_sessions', null=True, blank=True)
     evaluation_type = models.CharField(
-        max_length=20, 
+        max_length=30,  # Increased length
         choices=[
             ('Evaluation', 'Evaluation'),
             ('OJT', 'OJT'),
-            ('10 Cycle', '10 Cycle')
+            ('10 Cycle', '10 Cycle'),
+            ('Operator Observance', 'Operator Observance'),
+            ('Skill Evaluation Level 2', 'Skill Evaluation Level 2'),
         ]
     )
     scheduled_date = models.DateField()
     scheduled_time = models.TimeField()
     venue = models.CharField(max_length=128)
-    status = models.CharField(max_length=16, choices=[('Pending','Pending'),('Completed','Completed'),('Missed','Missed')], default='Pending')
+    status = models.CharField(max_length=16, choices=[('Pending', 'Pending'), ('Completed', 'Completed'), ('Missed', 'Missed')], default='Pending')
     attempt_no = models.PositiveIntegerField(default=1)
     performance_percentage = models.FloatField(null=True, blank=True)
     required_percentage = models.FloatField(null=True, blank=True)
@@ -1847,9 +1897,8 @@ class RetrainingSession(models.Model):
     class Meta:
         ordering = ['employee', 'evaluation_type', 'level', 'department', 'station', 'attempt_no']
 
-    def _str_(self):
-        return f"{self.employee.emp_id} - {self.level.level_name}/{self.department.department_name}/{self.station.station_name} - {self.evaluation_type} (Attempt {self.attempt_no})"
-
+    def __str__(self):
+        return f"{self.employee.emp_id} - {self.level.level_name}/{self.department.department_name}/{self.station.station_name if self.station else 'N/A'} - {self.evaluation_type} (Attempt {self.attempt_no})"
 
 class RetrainingSessionDetail(models.Model):
     """Detailed information for each retraining session"""
