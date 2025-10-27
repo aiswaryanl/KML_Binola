@@ -2427,13 +2427,46 @@ class AdvanceManpowerDashboardSerializer(serializers.ModelSerializer):
 # serializers.py (CORRECTED)
 
 from rest_framework import serializers
-from .models import ManagementReview
+from .models import ManagementReview, Hq, Factory, Department
+from django.utils import timezone
 
-# No changes needed here, this one is fine.
 class ManagementReviewSerializer(serializers.ModelSerializer):
+    # This section tells the serializer how to handle the ForeignKey fields.
+    # Instead of expecting an ID, it will expect a 'name' and look it up.
+    hq = serializers.SlugRelatedField(
+        slug_field='hq_name',
+        queryset=Hq.objects.all(),
+        required=False, # Matches model's null=True, blank=True
+        allow_null=True
+    )
+    factory = serializers.SlugRelatedField(
+        slug_field='factory_name',
+        queryset=Factory.objects.all()
+    )
+    department = serializers.SlugRelatedField(
+        slug_field='department_name',
+        queryset=Department.objects.all(),
+        required=False, # Matches model's null=True, blank=True
+        allow_null=True
+    )
+
+    # Adding explicit validation for month and year is a good practice.
+    month = serializers.IntegerField(min_value=1, max_value=12)
+    year = serializers.IntegerField(min_value=2000, max_value=timezone.now().year + 5)
+
     class Meta:
         model = ManagementReview
-        fields = "__all__"
+        fields = '__all__' # This includes all fields from the model
+        
+        # This validator is crucial for preventing duplicate entries and
+        # will return a clean error message to the user if they try.
+        validators = [
+            serializers.UniqueTogetherValidator(
+                queryset=ManagementReview.objects.all(),
+                fields=('hq', 'factory', 'department', 'month', 'year'),
+                message="A review for this combination of HQ, Factory, Department, Month, and Year already exists."
+            )
+        ]
 
 
 
@@ -2496,6 +2529,7 @@ from rest_framework import serializers
 from .models import MasterTable
 
 class CardEmployeeMasterSerializer(serializers.ModelSerializer):
+    department = serializers.CharField(source='department.department_name', read_only=True)
     class Meta:
         model = MasterTable
         fields = [

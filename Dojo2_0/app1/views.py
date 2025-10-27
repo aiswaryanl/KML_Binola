@@ -1167,6 +1167,7 @@ class MasterTableViewSet(viewsets.ModelViewSet):
         except MasterTable.DoesNotExist:
            return Response({"error": "Employee not found"}, status=404)
 
+
 # Level 0
 
 from rest_framework import viewsets, status
@@ -3531,307 +3532,12 @@ from .serializers import TraineeInfoSerializer
 
 
 
-# from django.core.exceptions import ObjectDoesNotExist
-# from rest_framework import viewsets, status
-# from rest_framework.response import Response
-# from rest_framework.exceptions import ValidationError
-# from .models import TraineeInfo, OJTScore, OJTTopic, OJTScoreRange, OJTPassingCriteria, Station
-# from .serializers import TraineeInfoSerializer
-
-# class TraineeInfoViewSet(viewsets.ModelViewSet):
-#     """
-#     API endpoint to create, update, list, and delete trainees with nested OJT scores.
-#     Status is updated after saving scores.
-#     """
-#     queryset = TraineeInfo.objects.all()
-#     serializer_class = TraineeInfoSerializer
-
-#     def get_queryset(self):
-#         queryset = super().get_queryset()
-#         trainer_id = self.request.query_params.get('trainer_id')
-#         station = self.request.query_params.get('station')
-
-#         if trainer_id:
-#             queryset = queryset.filter(trainer_id=trainer_id)
-        
-#         if station:
-#             try:
-#                 # Try to interpret station as a numeric ID
-#                 station_id = int(station)
-#                 queryset = queryset.filter(station_id=station_id)
-#             except ValueError:
-#                 # Fallback to station name, but warn about ambiguity
-#                 try:
-#                     station_obj = Station.objects.get(station_name=station)
-#                     queryset = queryset.filter(station=station_obj)
-#                 except Station.DoesNotExist:
-#                     raise ValidationError({"station": f"No Station found with name '{station}'"})
-#                 except Station.MultipleObjectsReturned:
-#                     raise ValidationError({"station": f"Multiple Stations found with name '{station}'. Please use station_id instead."})
-
-#         return queryset
-
-#     # def perform_recalculate_status(self, trainee):
-#     #     """Recalculate trainee status based on scores and criteria."""
-#     #     if not trainee.scores.exists():
-#     #         return trainee.status
-
-#     #     for score in trainee.scores.all():
-#     #         department = score.topic.department
-#     #         level = score.topic.level
-#     #         day = score.day
-
-#     #         try:
-#     #             score_range = OJTScoreRange.objects.get(department=department, level=level)
-#     #         except OJTScoreRange.DoesNotExist:
-#     #             continue  # skip if no range defined
-
-#     #         total_score = OJTScore.objects.filter(
-#     #             trainee=trainee,
-#     #             topic__department=department,
-#     #             topic__level=level,
-#     #             day=day
-#     #         ).aggregate(total=Sum("score"))["total"] or 0
-
-#     #         total_topics = OJTTopic.objects.filter(department=department, level=level).count()
-
-#     #         if total_topics > 0:
-#     #             max_possible = total_topics * score_range.max_score
-#     #             percentage = (total_score / max_possible) * 100
-#     #         else:
-#     #             percentage = 0
-
-#     #         # Passing criteria lookup
-#     #         criteria = (
-#     #             OJTPassingCriteria.objects.filter(department=department, level=level, day=day).first()
-#     #             or OJTPassingCriteria.objects.filter(department=department, level=level, day__isnull=True).first()
-#     #         )
-
-#     #         if criteria and percentage >= criteria.percentage:
-#     #             trainee.status = "Pass"
-#     #         else:
-#     #             trainee.status = "Fail"
-
-#     #         trainee.save(update_fields=["status"])
-#     #     return trainee.status
-
-#     # def perform_recalculate_status(self, trainee):
-#     #     """
-#     #     Recalculate trainee status.
-#     #     Status is 'Pass' only if ALL required OJT days meet the passing criteria.
-#     #     Status is 'Fail' if ANY required OJT day fails the passing criteria.
-#     #     Status is 'Pending' if not all required OJT days have been scored.
-#     #     """
-#     #     # Determine the Department and Level from the trainee's associated topics/scores.
-#     #     # Assuming the department/level is consistent across all topics for a trainee.
-#     #     first_score = trainee.scores.first()
-#     #     if not first_score:
-#     #         trainee.status = "Pending"
-#     #         trainee.save(update_fields=["status"])
-#     #         return trainee.status
-
-#     #     department = first_score.topic.department
-#     #     level = first_score.topic.level
-
-#     #     # 1. Get all REQUIRED OJT Days for this Department and Level
-#     #     required_days = OJTDay.objects.filter(department=department, level=level).distinct()
-        
-#     #     # If no days are defined, assume 'Pending' or a special case might be needed.
-#     #     if not required_days.exists():
-#     #         trainee.status = "Pending"
-#     #         trainee.save(update_fields=["status"])
-#     #         return trainee.status
-
-#     #     # 2. Get the Score Range and Max Score per Topic
-#     #     try:
-#     #         score_range = OJTScoreRange.objects.get(department=department, level=level)
-#     #         max_topic_score = score_range.max_score
-#     #     except OJTScoreRange.DoesNotExist:
-#     #         # Cannot calculate status without a score range.
-#     #         trainee.status = "Pending"
-#     #         trainee.save(update_fields=["status"])
-#     #         return trainee.status
-
-#     #     all_days_passed = True
-        
-#     #     for day in required_days:
-#     #         # 3. Get the Passing Criteria for the current Day (or general criteria)
-#     #         criteria = (
-#     #             OJTPassingCriteria.objects.filter(department=department, level=level, day=day).first()
-#     #             or OJTPassingCriteria.objects.filter(department=department, level=level, day__isnull=True).first()
-#     #         )
-
-#     #         # If no criteria, we can't determine pass/fail for this day.
-#     #         if not criteria:
-#     #             # Treat as 'Pending' if we can't determine pass/fail for a required day
-#     #             trainee.status = "Pending"
-#     #             trainee.save(update_fields=["status"])
-#     #             return trainee.status
-
-#     #         required_percentage = criteria.percentage
-
-#     #         # 4. Calculate total score and max possible score for this Day
-            
-#     #         # Topics for this Day's OJT (assuming ALL topics apply to ALL days if not filtered)
-#     #         # A more robust system might need OJTTopic.objects.filter(department=department, level=level, day=day)
-#     #         # but based on your models, all topics are for a department/level, so we'll use that:
-#     #         relevant_topics = OJTTopic.objects.filter(department=department, level=level)
-#     #         total_topics = relevant_topics.count()
-
-#     #         # Sum of actual scores for this Trainee for this Day
-#     #         daily_actual_score = OJTScore.objects.filter(
-#     #             trainee=trainee,
-#     #             day=day,
-#     #             topic__in=relevant_topics  # Ensures we only sum scores for relevant topics
-#     #         ).aggregate(total=Sum("score"))["total"] or 0
-            
-#     #         # Check how many topics for this day have been scored.
-#     #         # If the number of scores is less than the total topics, the day is incomplete.
-#     #         scores_count = OJTScore.objects.filter(trainee=trainee, day=day, topic__in=relevant_topics).count()
-            
-#     #         # If not all scores are in, the overall status is "Pending" and we can stop.
-#     #         if scores_count < total_topics:
-#     #             trainee.status = "Pending"
-#     #             trainee.save(update_fields=["status"])
-#     #             return trainee.status
-            
-#     #         # 5. Calculate Percentage
-#     #         max_possible_score = total_topics * max_topic_score
-            
-#     #         if max_possible_score > 0:
-#     #             daily_percentage = (daily_actual_score / max_possible_score) * 100
-#     #         else:
-#     #             daily_percentage = 0 # Can happen if total_topics is 0
-            
-#     #         # 6. Check Pass/Fail for this Day
-#     #         if daily_percentage < required_percentage:
-#     #             all_days_passed = False
-#     #             break  # Fail on the first failed day
-
-#     #     # 7. Set final Trainee Status
-#     #     if all_days_passed:
-#     #         trainee.status = "Pass"
-#     #     else:
-#     #         trainee.status = "Fail"
-
-#     #     trainee.save(update_fields=["status"])
-#     #     return trainee.status
-
-        
-#     # def create(self, request, *args, **kwargs):
-#     #     serializer = self.get_serializer(data=request.data)
-#     #     serializer.is_valid(raise_exception=True)
-#     #     trainee = serializer.save()
-#     #     self.perform_recalculate_status(trainee)
-#     #     return Response(serializer.data, status=status.HTTP_201_CREATED)
-
-#     # def update(self, request, *args, **kwargs):
-#     #     partial = kwargs.pop('partial', False)
-#     #     instance = self.get_object()
-#     #     serializer = self.get_serializer(instance, data=request.data, partial=partial)
-#     #     serializer.is_valid(raise_exception=True)
-#     #     trainee = serializer.save()
-#     #     self.perform_recalculate_status(trainee)
-#     #     return Response(serializer.data)
-
-#     def perform_recalculate_status(self, trainee):
-    
-#         # Get all levels associated with the trainee's scores
-#         levels = OJTTopic.objects.filter(scores__trainee=trainee).values('level').distinct()
-        
-#         if not levels:
-#             trainee.status = "Pending"
-#             trainee.save(update_fields=["status"])
-#             return trainee.status
-
-#         level_statuses = {}
-#         for level_data in levels:
-#             level = level_data['level']
-#             level_obj = Level.objects.get(id=level)
-#             department = trainee.scores.first().topic.department  # Assuming department is consistent
-
-#             # Get required OJT days for this department and level
-#             required_days = OJTDay.objects.filter(department=department, level=level_obj).distinct()
-            
-#             if not required_days.exists():
-#                 level_statuses[level_obj.level_name] = "Pending"
-#                 continue
-
-#             all_days_passed = True
-#             for day in required_days:
-#                 # Get passing criteria for the current day (or general criteria)
-#                 criteria = (
-#                     OJTPassingCriteria.objects.filter(department=department, level=level_obj, day=day).first()
-#                     or OJTPassingCriteria.objects.filter(department=department, level=level_obj, day__isnull=True).first()
-#                 )
-
-#                 if not criteria:
-#                     level_statuses[level_obj.level_name] = "Pending"
-#                     all_days_passed = False
-#                     break
-
-#                 required_percentage = criteria.percentage
-
-#                 # Get topics for this department and level
-#                 relevant_topics = OJTTopic.objects.filter(department=department, level=level_obj)
-#                 total_topics = relevant_topics.count()
-
-#                 # Get score range for this level
-#                 try:
-#                     score_range = OJTScoreRange.objects.get(department=department, level=level_obj)
-#                     max_topic_score = score_range.max_score
-#                 except OJTScoreRange.DoesNotExist:
-#                     level_statuses[level_obj.level_name] = "Pending"
-#                     all_days_passed = False
-#                     break
-
-#                 # Sum of actual scores for this trainee, day, and level
-#                 daily_actual_score = OJTScore.objects.filter(
-#                     trainee=trainee,
-#                     day=day,
-#                     topic__in=relevant_topics
-#                 ).aggregate(total=Sum("score"))["total"] or 0
-
-#                 # Check if all topics for this day have been scored
-#                 scores_count = OJTScore.objects.filter(
-#                     trainee=trainee,
-#                     day=day,
-#                     topic__in=relevant_topics
-#                 ).count()
-
-#                 if scores_count < total_topics:
-#                     level_statuses[level_obj.level_name] = "Pending"
-#                     all_days_passed = False
-#                     break
-
-#                 # Calculate percentage
-#                 max_possible_score = total_topics * max_topic_score
-#                 daily_percentage = (daily_actual_score / max_possible_score * 100) if max_possible_score > 0 else 0
-
-#                 # Check pass/fail for this day
-#                 if daily_percentage < required_percentage:
-#                     all_days_passed = False
-#                     break
-
-#             level_statuses[level_obj.level_name] = "Pass" if all_days_passed else "Fail"
-
-#         # If only one level is relevant, update trainee.status
-#         if len(level_statuses) == 1:
-#             trainee.status = list(level_statuses.values())[0]
-#         else:
-#             # If multiple levels, set status to 'Pending' or define a strategy
-#             trainee.status = "Pending" if any(status == "Pending" for status in level_statuses.values()) else "Mixed"
-        
-#         trainee.save(update_fields=["status"])
-#         return trainee.status
-
-
-from django.db.models import Sum
+from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from .models import TraineeInfo, OJTScore, OJTTopic, OJTScoreRange, OJTPassingCriteria
+from rest_framework.exceptions import ValidationError
+from .models import TraineeInfo, OJTScore, OJTTopic, OJTScoreRange, OJTPassingCriteria, Station
 from .serializers import TraineeInfoSerializer
-from .signals import run_after_delay,update_skill_matrix
 
 class TraineeInfoViewSet(viewsets.ModelViewSet):
     """
@@ -3842,22 +3548,27 @@ class TraineeInfoViewSet(viewsets.ModelViewSet):
     serializer_class = TraineeInfoSerializer
 
     def get_queryset(self):
-        """
-        Filters the queryset based on 'emp_id' and 'station_id' from the query parameters.
-        """
         queryset = super().get_queryset()
+        trainer_id = self.request.query_params.get('trainer_id')
+        station = self.request.query_params.get('station')
 
-        # Get the parameters sent by the React frontend
-        emp_id = self.request.query_params.get('emp_id')
-        station_id = self.request.query_params.get('station_id')
-
-        # If an emp_id was provided in the URL, filter by it
-        if emp_id:
-            queryset = queryset.filter(emp_id=emp_id)
-
-        # If a station_id was provided in the URL, filter by it
-        if station_id:
-            queryset = queryset.filter(station_id=station_id)
+        if trainer_id:
+            queryset = queryset.filter(trainer_id=trainer_id)
+        
+        if station:
+            try:
+                # Try to interpret station as a numeric ID
+                station_id = int(station)
+                queryset = queryset.filter(station_id=station_id)
+            except ValueError:
+                # Fallback to station name, but warn about ambiguity
+                try:
+                    station_obj = Station.objects.get(station_name=station)
+                    queryset = queryset.filter(station=station_obj)
+                except Station.DoesNotExist:
+                    raise ValidationError({"station": f"No Station found with name '{station}'"})
+                except Station.MultipleObjectsReturned:
+                    raise ValidationError({"station": f"Multiple Stations found with name '{station}'. Please use station_id instead."})
 
         return queryset
 
@@ -3904,7 +3615,6 @@ class TraineeInfoViewSet(viewsets.ModelViewSet):
 
     #         trainee.save(update_fields=["status"])
     #     return trainee.status
-
 
     def perform_recalculate_status(self, trainee):
         """
@@ -4008,33 +3718,12 @@ class TraineeInfoViewSet(viewsets.ModelViewSet):
         trainee.save(update_fields=["status"])
         return trainee.status
 
-
-    def trigger_skill_matrix_update(self, trainee):
-        """Fires the skill matrix update after status is calculated."""
-        # Only trigger if the final status is 'Pass'
-        if trainee.status == "Pass":
-            try:
-                employee = MasterTable.objects.get(emp_id=trainee.emp_id)
-                station_object = trainee.station
-                
-                # Since TraineeInfo doesn't directly hold the Level, we infer it from a score
-                first_score = OJTScore.objects.filter(trainee=trainee).first()
-                if not first_score: return
-
-                level_object = first_score.topic.level
-                
-                # Trigger the check after the status is definitely saved
-                run_after_delay(update_skill_matrix, 5, employee, station_object, level_object, True)
-            except Exception as e:
-                print(f"[ERROR] Failed to trigger skill matrix update: {e}")
-
-
+        
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         trainee = serializer.save()
         self.perform_recalculate_status(trainee)
-        self.trigger_skill_matrix_update(trainee) # <--- ADDED HERE
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
@@ -4044,9 +3733,7 @@ class TraineeInfoViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         trainee = serializer.save()
         self.perform_recalculate_status(trainee)
-        self.trigger_skill_matrix_update(trainee) # <--- ADDED HERE
         return Response(serializer.data)
-
 
 
 
@@ -4980,1017 +4667,59 @@ class RetrainingConfigViewSet(viewsets.ModelViewSet):
         return queryset
     
     
-# class RetrainingSessionViewSet(viewsets.ModelViewSet):
-#     queryset = RetrainingSession.objects.all().order_by("-created_at")
-#     serializer_class = RetrainingSessionSerializer
-
-#     # def create(self, request, *args, **kwargs):
-#     #  """Schedule a new retraining session"""
-#     #  employee_id = request.data.get('employee')
-#     #  level_id = request.data.get('level')
-#     #  department_id = request.data.get('department')
-#     #  station_id = request.data.get('station')
-#     #  evaluation_type = request.data.get('evaluation_type')
-
-#     #  if not (employee_id and level_id and department_id and evaluation_type):
-#     #     return Response({
-#     #         "error": "Missing required fields: employee, level, department, evaluation_type"
-#     #     }, status=status.HTTP_400_BAD_REQUEST)
-
-#     #  # Get max allowed retraining sessions for this level and evaluation type
-#     #  config = RetrainingConfig.objects.filter(
-#     #     level_id=level_id, 
-#     #     evaluation_type=evaluation_type
-#     #  ).first()
-#     #  max_retraining_sessions = config.max_count if config else 2
-
-#     #  # Count existing retraining sessions for this specific combination
-#     #  filter_kwargs = {
-#     #     'employee_id': employee_id,
-#     #     'level_id': level_id,
-#     #     'department_id': department_id,
-#     #     'evaluation_type': evaluation_type
-#     #  }
-    
-#     #  if station_id:
-#     #     filter_kwargs['station_id'] = station_id
-
-#     #  existing_sessions = RetrainingSession.objects.filter(**filter_kwargs)
-#     #  existing_count = existing_sessions.count()
-
-#     #  if existing_count >= max_retraining_sessions:
-#     #     return Response({
-#     #         'error': f'Maximum retraining sessions ({max_retraining_sessions}) reached for this employee and evaluation combination.'
-#     #     }, status=status.HTTP_400_BAD_REQUEST)
-
-#     #  request.data['attempt_no'] = existing_count + 2
-    
-     
-    
-#     #  # Create the main session with scheduling info only
-#     #  response = super().create(request, *args, **kwargs)
-     
-     
-    
-#     #  return response
-#     def create(self, request, *args, **kwargs):
-#         """Schedule a new retraining session"""
-#         employee_id = request.data.get('employee')
-#         level_id = request.data.get('level')
-#         department_id = request.data.get('department')
-#         station_id = request.data.get('station')
-#         evaluation_type = request.data.get('evaluation_type')
-
-#         if not (employee_id and level_id and department_id and evaluation_type):
-#             return Response({
-#                 "error": "Missing required fields: employee, level, department, evaluation_type"
-#             }, status=status.HTTP_400_BAD_REQUEST)
-
-#         # Validate evaluation_type
-#         valid_evaluation_types = [choice[0] for choice in RetrainingSession._meta.get_field('evaluation_type').choices]
-#         if evaluation_type not in valid_evaluation_types:
-#             return Response({
-#                 "error": f"Invalid evaluation_type. Must be one of: {', '.join(valid_evaluation_types)}"
-#             }, status=status.HTTP_400_BAD_REQUEST)
-
-#         # Get max allowed retraining sessions for this level and evaluation type
-#         config = RetrainingConfig.objects.filter(
-#             level_id=level_id, 
-#             evaluation_type=evaluation_type
-#         ).first()
-#         max_retraining_sessions = config.max_count if config else 2
-
-#         # Count existing retraining sessions for this specific combination
-#         filter_kwargs = {
-#             'employee_id': employee_id,
-#             'level_id': level_id,
-#             'department_id': department_id,
-#             'evaluation_type': evaluation_type
-#         }
-        
-#         if station_id:
-#             filter_kwargs['station_id'] = station_id
-
-#         existing_sessions = RetrainingSession.objects.filter(**filter_kwargs)
-#         existing_count = existing_sessions.count()
-
-#         if existing_count >= max_retraining_sessions:
-#             return Response({
-#                 'error': f'Maximum retraining sessions ({max_retraining_sessions}) reached for this employee and evaluation combination.'
-#             }, status=status.HTTP_400_BAD_REQUEST)
-
-#         request.data['attempt_no'] = existing_count + 1  # Corrected from existing_count + 2
-        
-#         # Create the main session with scheduling info only
-#         response = super().create(request, *args, **kwargs)
-        
-#         return response
-
-#     @action(detail=True, methods=['patch'], url_path='complete-session')
-#     def complete_session(self, request, pk=None):
-#         """Complete a retraining session with results and observations"""
-#         try:
-#             session = self.get_object()
-            
-#             if session.status != 'Pending':
-#                 return Response(
-#                     {'error': 'Only pending sessions can be completed'}, 
-#                     status=status.HTTP_400_BAD_REQUEST
-#                 )
-            
-#             # Update main session with completion data
-#             session.status = request.data.get('status', 'Completed')
-#             session.performance_percentage = request.data.get('performance_percentage')
-#             session.required_percentage = request.data.get('required_percentage')
-#             session.save()
-            
-#             # Update session detail with observations and trainer info
-#             session_detail, created = RetrainingSessionDetail.objects.get_or_create(
-#                 retraining_session=session
-#             )
-            
-#             if 'observations_failure_points' in request.data:
-#                 session_detail.observations_failure_points = request.data['observations_failure_points']
-            
-#             if 'trainer_name' in request.data:
-#                 session_detail.trainer_name = request.data['trainer_name']
-            
-#             session_detail.save()
-            
-#             # Return updated session with detail
-#             updated_serializer = self.get_serializer(session)
-#             return Response(updated_serializer.data)
-            
-#         except RetrainingSession.DoesNotExist:
-#             return Response(
-#                 {'error': 'Session not found'}, 
-#                 status=status.HTTP_404_NOT_FOUND
-#             )
-
-#     @action(detail=True, methods=['patch'], url_path='update-observations')
-#     def update_observations(self, request, pk=None):
-#         """Update only observations and trainer info (for partial updates)"""
-#         try:
-#             session = self.get_object()
-            
-#             # Get or create session detail
-#             session_detail, created = RetrainingSessionDetail.objects.get_or_create(
-#                 retraining_session=session
-#             )
-            
-#             # Update only the fields provided
-#             if 'observations_failure_points' in request.data:
-#                 session_detail.observations_failure_points = request.data['observations_failure_points']
-            
-#             if 'trainer_name' in request.data:
-#                 session_detail.trainer_name = request.data['trainer_name']
-            
-#             session_detail.save()
-            
-#             # Return updated session with detail
-#             updated_serializer = self.get_serializer(session)
-#             return Response(updated_serializer.data)
-            
-#         except RetrainingSession.DoesNotExist:
-#             return Response(
-#                 {'error': 'Session not found'}, 
-#                 status=status.HTTP_404_NOT_FOUND
-#             )
-
-    
-
-#     @action(detail=False, methods=['get'], url_path='employee-sessions/(?P<employee_id>[^/.]+)')
-#     def get_employee_sessions(self, request, employee_id=None):
-#         """Get all retraining sessions for a specific employee, ordered by attempt number"""
-#         try:
-#             employee = MasterTable.objects.get(emp_id=employee_id)
-#             sessions = RetrainingSession.objects.filter(
-#                 employee=employee
-#             ).select_related('session_detail').order_by(
-#                 'evaluation_type', 'level', 'department', 'station', 'attempt_no'
-#             )
-            
-#             serializer = self.get_serializer(sessions, many=True)
-#             return Response({
-#                 'employee_id': employee_id,
-#                 'employee_name': f"{employee.first_name or ''} {employee.last_name or ''}".strip(),
-#                 'sessions': serializer.data
-#             })
-            
-#         except MasterTable.DoesNotExist:
-#             return Response(
-#                 {'error': 'Employee not found'}, 
-#                 status=status.HTTP_404_NOT_FOUND
-#             )
-
-#     # @action(detail=False, methods=['get'], url_path='failed-employees')
-#     # def get_failed_employees(self, request):
-#     #     """Get all failed employees from all evaluation types with retraining status"""
-#     #     failed_employees = []
-        
-#     #     # Get failed employees from each evaluation system
-#     #     ten_cycle_failed = self._get_10cycle_failed_employees()
-#     #     failed_employees.extend(ten_cycle_failed)
-        
-#     #     ojt_failed = self._get_ojt_failed_employees()
-#     #     failed_employees.extend(ojt_failed)
-        
-#     #     evaluation_failed = self._get_evaluation_failed_employees()
-#     #     failed_employees.extend(evaluation_failed)
-        
-#     #     print(f"10 Cycle failures: {len(ten_cycle_failed)}")      
-#     #     print(f"OJT failures: {len(ojt_failed)}")                  
-#     #     print(f"Evaluation failures: {len(evaluation_failed)}")  
-#     #     print(f"Total failures: {len(failed_employees)}") 
-        
-#     #     # Apply filters
-#     #     department_id = request.query_params.get('department_id')
-#     #     evaluation_type = request.query_params.get('evaluation_type')
-#     #     status_filter = request.query_params.get('status')
-        
-#     #     if department_id:
-#     #         failed_employees = [emp for emp in failed_employees if emp.get('department_id') == int(department_id)]
-        
-#     #     if evaluation_type:
-#     #         failed_employees = [emp for emp in failed_employees if emp.get('evaluation_type') == evaluation_type]
-            
-#     #     if status_filter:
-#     #         failed_employees = [emp for emp in failed_employees if emp.get('retraining_status') == status_filter]
-        
-#     #     return Response({
-#     #         'count': len(failed_employees),
-#     #         'results': failed_employees
-#     #     })
-#     def get_failed_employees(self, request):
-#         """Get all failed employees from all evaluation types with retraining status"""
-#         failed_employees = []
-        
-#         # Existing evaluation types
-#         ten_cycle_failed = self._get_10cycle_failed_employees()
-#         failed_employees.extend(ten_cycle_failed)
-        
-#         ojt_failed = self._get_ojt_failed_employees()
-#         failed_employees.extend(ojt_failed)
-        
-#         evaluation_failed = self._get_evaluation_failed_employees()
-#         failed_employees.extend(evaluation_failed)
-        
-#         # New evaluation types
-#         operator_observance_failed = self._get_operator_observance_failed_employees()
-#         failed_employees.extend(operator_observance_failed)
-        
-#         evaluation_level2_failed = self._get_evaluation_level2_failed_employees()
-#         failed_employees.extend(evaluation_level2_failed)
-        
-#         print(f"10 Cycle failures: {len(ten_cycle_failed)}")
-#         print(f"OJT failures: {len(ojt_failed)}")
-#         print(f"Evaluation failures: {len(evaluation_failed)}")
-#         print(f"Operator Observance failures: {len(operator_observance_failed)}")
-#         print(f"Evaluation Level 2 failures: {len(evaluation_level2_failed)}")
-#         print(f"Total failures: {len(failed_employees)}")
-        
-#         # Apply filters
-#         department_id = request.query_params.get('department_id')
-#         evaluation_type = request.query_params.get('evaluation_type')
-#         status_filter = request.query_params.get('status')
-        
-#         if department_id:
-#             failed_employees = [emp for emp in failed_employees if emp.get('department_id') == int(department_id)]
-        
-#         if evaluation_type:
-#             failed_employees = [emp for emp in failed_employees if emp.get('evaluation_type') == evaluation_type]
-            
-#         if status_filter:
-#             failed_employees = [emp for emp in failed_employees if emp.get('retraining_status') == status_filter]
-        
-#         return Response({
-#             'count': len(failed_employees),
-#             'results': failed_employees
-#         })
-
-#     def _get_operator_observance_failed_employees(self):
-#         """Get failed employees from OperatorObservanceSheet evaluations"""
-#         failed_employees = []
-        
-#         failed_sheets = OperatorObservanceSheet.objects.filter(
-#             result='Fail'
-#         ).prefetch_related('topics')
-        
-#         for sheet in failed_sheets:
-#             try:
-#                 # Try to map operator_name to MasterTable
-#                 employee = MasterTable.objects.filter(
-#                     first_name__iexact=sheet.operator_name.split()[0],
-#                     last_name__iexact=' '.join(sheet.operator_name.split()[1:]) if len(sheet.operator_name.split()) > 1 else ''
-#                 ).first()
-#                 if not employee:
-#                     continue  # Skip if no matching employee found
-                
-#                 # Get department and level from topics or fallback to sheet data
-#                 department = None
-#                 level = Level.objects.filter(level_name=sheet.level).first()
-#                 if not level:
-#                     continue  # Skip if level not found
-                
-#                 # Get department from topics or MasterTable
-#                 if sheet.topics.exists():
-#                     department = sheet.topics.first().department
-#                 elif employee.department:
-#                     department = employee.department
-                
-#                 if not department:
-#                     continue  # Skip if department not found
-                
-#                 # Get retraining sessions
-#                 existing_sessions = RetrainingSession.objects.filter(
-#                     employee=employee,
-#                     level=level,
-#                     department=department,
-#                     evaluation_type='Operator Observance',
-#                     station__station_name=sheet.process_name
-#                 ).select_related('session_detail').order_by('-attempt_no')
-                
-#                 # Get max allowed attempts
-#                 config = RetrainingConfig.objects.filter(
-#                     level=level, 
-#                     evaluation_type='Operator Observance'
-#                 ).first()
-#                 max_attempts = config.max_count if config else 2
-                
-#                 retraining_status = self._determine_retraining_status(existing_sessions, max_attempts)
-                
-#                 # Assume required percentage (modify based on your criteria)
-#                 required_percentage = 80.0  # Default, adjust based on your criteria
-#                 obtained_percentage = float(sheet.marks_obtained or 0) if sheet.marks_obtained else 0
-#                 gap = required_percentage - obtained_percentage
-                
-#                 failed_employees.append({
-#                     'employee_pk': employee.emp_id,
-#                     'employee_id': employee.emp_id,
-#                     'employee_name': sheet.operator_name,
-#                     'department_id': department.department_id,
-#                     'department_name': department.department_name,
-#                     'station_id': None,  # Adjust if you can map process_name to Station
-#                     'station_name': sheet.process_name,
-#                     'level_id': level.level_id,
-#                     'level_name': level.level_name,
-#                     'evaluation_type': 'Operator Observance',
-#                     'obtained_percentage': round(obtained_percentage, 2),
-#                     'required_percentage': required_percentage,
-#                     'performance_gap': round(gap, 2),
-#                     'last_evaluation_date': sheet.evaluation_end_date.isoformat(),
-#                     'existing_sessions_count': existing_sessions.count(),
-#                     'max_attempts': max_attempts,
-#                     'can_schedule_retraining': existing_sessions.count() < max_attempts,
-#                     'retraining_status': retraining_status,
-#                     'retraining_records': [
-#                         {
-#                             'id': session.id,
-#                             'attempt_no': session.attempt_no,
-#                             'scheduled_date': session.scheduled_date.isoformat(),
-#                             'scheduled_time': session.scheduled_time.strftime('%H:%M'),
-#                             'venue': session.venue,
-#                             'status': session.status,
-#                             'performance_percentage': session.performance_percentage,
-#                             'session_detail': {
-#                                 'observations_failure_points': session.session_detail.observations_failure_points if hasattr(session, 'session_detail') else None,
-#                                 'trainer_name': session.session_detail.trainer_name if hasattr(session, 'session_detail') else None,
-#                             } if hasattr(session, 'session_detail') else None
-#                         } for session in existing_sessions
-#                     ]
-#                 })
-#             except Exception as e:
-#                 print(f"Error processing OperatorObservanceSheet for {sheet.operator_name}: {str(e)}")
-#                 continue
-        
-#         return failed_employees
-
-#     def _get_evaluation_level2_failed_employees(self):
-#         """Get failed employees from EvaluationLevel2 evaluations"""
-#         failed_employees = []
-        
-#         failed_evaluations = EvaluationLevel2.objects.filter(
-#             status__in=[EvaluationLevel2.STATUS_FAIL, EvaluationLevel2.STATUS_RE_EVAL_FAIL]
-#         ).select_related('employee', 'department', 'level')
-        
-#         for evaluation in failed_evaluations:
-#             try:
-#                 # Get passing criteria (modify based on your criteria)
-#                 required_percentage = 80.0  # Default, adjust based on your criteria
-#                 obtained_percentage = float(evaluation.total_marks or 0)
-#                 gap = required_percentage - obtained_percentage
-                
-#                 # Get station
-#                 station = Station.objects.filter(station_name=evaluation.station_name).first()
-                
-#                 # Get retraining sessions
-#                 existing_sessions = RetrainingSession.objects.filter(
-#                     employee=evaluation.employee,
-#                     level=evaluation.level,
-#                     department=evaluation.department,
-#                     evaluation_type='Skill Evaluation Level 2',
-#                     station=station
-#                 ).select_related('session_detail').order_by('-attempt_no')
-                
-#                 # Get max allowed attempts
-#                 config = RetrainingConfig.objects.filter(
-#                     level=evaluation.level, 
-#                     evaluation_type='Skill Evaluation Level 2'
-#                 ).first()
-#                 max_attempts = config.max_count if config else 2
-                
-#                 retraining_status = self._determine_retraining_status(existing_sessions, max_attempts)
-                
-#                 failed_employees.append({
-#                     'employee_pk': evaluation.employee.emp_id,
-#                     'employee_id': evaluation.employee.emp_id,
-#                     'employee_name': evaluation.snapshot_full_name,
-#                     'department_id': evaluation.department.department_id if evaluation.department else None,
-#                     'department_name': evaluation.department.department_name if evaluation.department else 'N/A',
-#                     'station_id': station.station_id if station else None,
-#                     'station_name': evaluation.station_name,
-#                     'level_id': evaluation.level.level_id,
-#                     'level_name': evaluation.level.level_name,
-#                     'evaluation_type': 'Skill Evaluation Level 2',
-#                     'obtained_percentage': round(obtained_percentage, 2),
-#                     'required_percentage': required_percentage,
-#                     'performance_gap': round(gap, 2),
-#                     'last_evaluation_date': evaluation.evaluation_date.isoformat(),
-#                     'existing_sessions_count': existing_sessions.count(),
-#                     'max_attempts': max_attempts,
-#                     'can_schedule_retraining': existing_sessions.count() < max_attempts,
-#                     'retraining_status': retraining_status,
-#                     'retraining_records': [
-#                         {
-#                             'id': session.id,
-#                             'attempt_no': session.attempt_no,
-#                             'scheduled_date': session.scheduled_date.isoformat(),
-#                             'scheduled_time': session.scheduled_time.strftime('%H:%M'),
-#                             'venue': session.venue,
-#                             'status': session.status,
-#                             'performance_percentage': session.performance_percentage,
-#                             'session_detail': {
-#                                 'observations_failure_points': session.session_detail.observations_failure_points if hasattr(session, 'session_detail') else None,
-#                                 'trainer_name': session.session_detail.trainer_name if hasattr(session, 'session_detail') else None,
-#                             } if hasattr(session, 'session_detail') else None
-#                         } for session in existing_sessions
-#                     ]
-#                 })
-#             except Exception as e:
-#                 print(f"Error processing EvaluationLevel2 for {evaluation.employee.emp_id}: {str(e)}")
-#                 continue
-        
-#         return failed_employees
-        
-        
-
-#     def _get_10cycle_failed_employees(self):
-#         # """Get failed employees from 10 Cycle evaluations"""
-#         # failed_employees = []
-        
-#         # evaluations = OperatorPerformanceEvaluation.objects.filter(
-#         #     final_status='Fail - Retraining Required',
-#         #     is_completed=True
-#         # ).select_related('employee', 'department', 'station', 'level')
-    
-#         failed_employees = []
-    
-        
-#         all_evaluations = OperatorPerformanceEvaluation.objects.all()
-#         print(f"Total OperatorPerformanceEvaluations: {all_evaluations.count()}")
-    
-        
-#         unique_statuses = OperatorPerformanceEvaluation.objects.values_list('final_status', flat=True).distinct()
-#         print(f"All final_status values in DB: {list(unique_statuses)}")
-    
-        
-#         completed_values = OperatorPerformanceEvaluation.objects.values_list('is_completed', flat=True).distinct()
-#         print(f"All is_completed values in DB: {list(completed_values)}")
-    
-        
-#         fail_evaluations = OperatorPerformanceEvaluation.objects.filter(
-#          final_status__icontains='Fail'
-#         )
-#         print(f"Evaluations containing 'Fail': {fail_evaluations.count()}")
-#         for eval in fail_evaluations:
-#          print(f"  - Status: '{eval.final_status}' | Completed: {eval.is_completed} | Employee: {eval.employee}")
-    
-        
-#         evaluations = OperatorPerformanceEvaluation.objects.filter(
-#           final_status='Fail - Retraining Required',
-#           is_completed=True
-#         ).select_related('employee', 'department', 'station', 'level')
-    
-#         print(f"Evaluations matching exact criteria: {evaluations.count()}")
-        
-#         for evaluation in evaluations:
-#             # Get passing criteria
-#             try:
-#                 criteria = TenCyclePassingCriteria.objects.get(
-#                     level=evaluation.level,
-#                     department=evaluation.department,
-#                     station=evaluation.station,
-#                     is_active=True
-#                 )
-#                 required_percentage = criteria.passing_percentage
-#             except TenCyclePassingCriteria.DoesNotExist:
-#                 required_percentage = 60.0
-            
-#             # Get retraining sessions for this employee/evaluation combo
-#             existing_sessions = RetrainingSession.objects.filter(
-#                 employee=evaluation.employee,
-#                 level=evaluation.level,
-#                 department=evaluation.department,
-#                 station=evaluation.station,
-#                 evaluation_type='10 Cycle'
-#             ).select_related('session_detail').order_by('-attempt_no')
-#             # ).order_by('-attempt_no')
-            
-#             # Get max allowed attempts
-#             config = RetrainingConfig.objects.filter(
-#                 level=evaluation.level, 
-#                 evaluation_type='10 Cycle'
-#             ).first()
-#             max_attempts = config.max_count if config else 2
-            
-#             # Determine retraining status
-#             retraining_status = self._determine_retraining_status(existing_sessions, max_attempts)
-            
-#             gap = required_percentage - (evaluation.final_percentage or 0)
-            
-#             failed_employees.append({
-#                 'employee_pk': evaluation.employee.emp_id,
-#                 'employee_id': evaluation.employee.emp_id,
-#                 'employee_name': f"{evaluation.employee.first_name or ''} {evaluation.employee.last_name or ''}".strip(),
-#                 'department_id': evaluation.department.department_id,
-#                 'department_name': evaluation.department.department_name,
-#                 'station_id': evaluation.station.station_id if evaluation.station else None,
-#                 'station_name': evaluation.station.station_name if evaluation.station else 'N/A',
-#                 'level_id': evaluation.level.level_id,
-#                 'level_name': evaluation.level.level_name,
-#                 'evaluation_type': '10 Cycle',
-#                 'obtained_percentage': round(evaluation.final_percentage or 0, 2),
-#                 'required_percentage': required_percentage,
-#                 'performance_gap': round(gap, 2),
-#                 'last_evaluation_date': evaluation.date.isoformat(),
-#                 'existing_sessions_count': existing_sessions.count(),
-#                 'max_attempts': max_attempts,
-#                 'can_schedule_retraining': existing_sessions.count() < max_attempts,
-#                 'retraining_status': retraining_status,
-#                 # 'retraining_records': [
-#                 #     {
-#                 #         'id': session.id,
-#                 #         'attempt_no': session.attempt_no,
-#                 #         'scheduled_date': session.scheduled_date.isoformat(),
-#                 #         'scheduled_time': session.scheduled_time.strftime('%H:%M'),
-#                 #         'venue': session.venue,
-#                 #         'status': session.status,
-#                 #         'performance_percentage': session.performance_percentage
-#                 #     } for session in existing_sessions
-#                 # ]
-#                                 'retraining_records': [
-#                        {
-#                           'id': session.id,
-#                            'attempt_no': session.attempt_no,
-#                            'scheduled_date': session.scheduled_date.isoformat(),
-#                             'scheduled_time': session.scheduled_time.strftime('%H:%M'),
-#                             'venue': session.venue,
-#                             'status': session.status,
-#                             'performance_percentage': session.performance_percentage,
-#                             'session_detail': {
-#                                 'observations_failure_points': session.session_detail.observations_failure_points if hasattr(session, 'session_detail') else None,
-#                                 'trainer_name': session.session_detail.trainer_name if hasattr(session, 'session_detail') else None,
-#                             } if hasattr(session, 'session_detail') else None
-#                         } for session in existing_sessions
-#                     ]
-#             })
-        
-#         return failed_employees
-
-
-    
-    
-#     def _get_ojt_failed_employees(self):
-#      """Get failed employees from OJT evaluations"""
-#      failed_employees = []
-    
-#      trainees = TraineeInfo.objects.filter(status='Fail')
-    
-#      for trainee in trainees:
-#         # Get trainee's score info to determine department/level
-#         trainee_score = trainee.scores.select_related('topic_department', 'topic_level', 'day').first()
-#         if not trainee_score:
-#             continue
-
-#         department = trainee_score.topic.department
-#         level = trainee_score.topic.level
-#         day = trainee_score.day
-
-#         # Get passing criteria
-#         criteria = (
-#             OJTPassingCriteria.objects.filter(department=department, level=level, day=day).first()
-#             or OJTPassingCriteria.objects.filter(department=department, level=level, day__isnull=True).first()
-#         )
-#         required_percentage = criteria.percentage if criteria else 60.0
-
-#         # Calculate obtained percentage
-#         from django.db.models import Sum
-#         total_score = trainee.scores.aggregate(total=Sum("score"))["total"] or 0
-#         total_topics = trainee.scores.count()
-
-#         obtained_percentage = 0
-#         if total_topics > 0:
-#             try:
-#                 score_range = OJTScoreRange.objects.filter(
-#                     department=department,
-#                     level=level
-#                 ).first()
-#                 max_score = score_range.max_score if score_range else 5
-#                 obtained_percentage = (total_score / (total_topics * max_score)) * 100
-#             except:
-#                 obtained_percentage = 0
-
-#         # Try to match trainee with MasterTable
-#         try:
-#             employee = MasterTable.objects.get(emp_id=trainee.emp_id)
-#             employee_pk = employee.pk
-#         except MasterTable.DoesNotExist:
-#             employee = None
-#             employee_pk = None
-
-#         # Get retraining sessions (only if mapped to MasterTable)
-#         if employee:
-#             existing_sessions = RetrainingSession.objects.filter(
-#                 employee=employee,
-#                 level=level,
-#                 department=department,
-#                 evaluation_type='OJT'
-#             ).select_related('session_detail').order_by('-attempt_no')
-#             # ).order_by('-attempt_no')
-
-#             config = RetrainingConfig.objects.filter(level=level, evaluation_type='OJT').first()
-#             max_attempts = config.max_count if config else 2
-
-#             retraining_status = self._determine_retraining_status(existing_sessions, max_attempts)
-#         else:
-#             existing_sessions = []
-#             max_attempts = 0
-#             retraining_status = "not_mapped"  # Or "N/A"
-
-#         gap = required_percentage - obtained_percentage
-
-#         failed_employees.append({
-#             'employee_pk': employee_pk, 
-#             'employee_id': trainee.emp_id,
-#             'employee_name': trainee.trainee_name,
-#             'department_id': department.department_id,
-#             'department_name': department.department_name,
-#             'station_id': None,
-#             'station_name': trainee.station,
-#             'level_id': level.level_id,
-#             'level_name': level.level_name,
-#             'evaluation_type': 'OJT',
-#             'obtained_percentage': round(obtained_percentage, 2),
-#             'required_percentage': required_percentage,
-#             'performance_gap': round(gap, 2),
-#             'last_evaluation_date': trainee.doj.isoformat() if trainee.doj else None,
-#             'existing_sessions_count': len(existing_sessions),
-#             'max_attempts': max_attempts,
-#             'can_schedule_retraining': employee is not None and len(existing_sessions) < max_attempts,
-#             'retraining_status': retraining_status,
-#             # 'retraining_records': [
-#             #     {
-#             #         'id': session.id,
-#             #         'attempt_no': session.attempt_no,
-#             #         'scheduled_date': session.scheduled_date.isoformat(),
-#             #         'scheduled_time': session.scheduled_time.strftime('%H:%M'),
-#             #         'venue': session.venue,
-#             #         'status': session.status,
-#             #         'performance_percentage': session.performance_percentage
-#             #     } for session in existing_sessions
-#             # ]
-#                             'retraining_records': [
-#                        {
-#                           'id': session.id,
-#                            'attempt_no': session.attempt_no,
-#                            'scheduled_date': session.scheduled_date.isoformat(),
-#                             'scheduled_time': session.scheduled_time.strftime('%H:%M'),
-#                             'venue': session.venue,
-#                             'status': session.status,
-#                             'performance_percentage': session.performance_percentage,
-#                             'session_detail': {
-#                                 'observations_failure_points': session.session_detail.observations_failure_points if hasattr(session, 'session_detail') else None,
-#                                 'trainer_name': session.session_detail.trainer_name if hasattr(session, 'session_detail') else None,
-#                             } if hasattr(session, 'session_detail') else None
-#                         } for session in existing_sessions
-#                     ]
-#         })
- 
-#      return failed_employees
-
-
-#     def _get_evaluation_failed_employees(self):
-#         """Get failed employees from Evaluation tests"""
-#         failed_employees = []
-        
-#         failed_scores = Score.objects.filter(passed=False).select_related(
-#             'employee', 'level', 'skill', 'test'
-#         )
-        
-#         for score in failed_scores:
-#             if not score.employee or not score.level:
-#                 continue
-                
-#             # Get department
-#             department = None
-#             if hasattr(score.employee, 'department') and score.employee.department:
-#                 department = score.employee.department
-#             elif score.skill and hasattr(score.skill, 'subline'):
-#                 try:
-#                     department = score.skill.subline.line.department
-#                 except AttributeError:
-#                     continue
-#             else:
-#                 continue
-            
-#             # Get passing criteria
-#             criteria = EvaluationPassingCriteria.objects.filter(
-#                 level=score.level,
-#                 department=department
-#             ).first()
-#             required_percentage = float(criteria.percentage) if criteria else 80.0
-            
-#             # Get retraining sessions
-#             existing_sessions = RetrainingSession.objects.filter(
-#                 employee=score.employee,
-#                 level=score.level,
-#                 department=department,
-#                 evaluation_type='Evaluation'
-#             ).select_related('session_detail').order_by('-attempt_no')
-#             # ).order_by('-attempt_no')
-            
-#             config = RetrainingConfig.objects.filter(level=score.level, evaluation_type='Evaluation').first()
-#             max_attempts = config.max_count if config else 2
-            
-#             retraining_status = self._determine_retraining_status(existing_sessions, max_attempts)
-#             gap = required_percentage - score.percentage
-            
-#             failed_employees.append({
-#                 'employee_pk': score.employee.emp_id,
-#                 'employee_id': score.employee.emp_id,
-#                 'employee_name': f"{score.employee.first_name or ''} {score.employee.last_name or ''}".strip(),
-#                 'department_id': department.department_id,
-#                 'department_name': department.department_name,
-#                 'station_id': score.skill.station_id if score.skill else None,
-#                 'station_name': score.skill.station_name if score.skill else 'N/A',
-#                 'level_id': score.level.level_id,
-#                 'level_name': score.level.level_name,
-#                 'evaluation_type': 'Evaluation',
-#                 'obtained_percentage': round(score.percentage, 2),
-#                 'required_percentage': required_percentage,
-#                 'performance_gap': round(gap, 2),
-#                 'last_evaluation_date': score.created_at.date().isoformat(),
-#                 'existing_sessions_count': existing_sessions.count(),
-#                 'max_attempts': max_attempts,
-#                 'can_schedule_retraining': existing_sessions.count() < max_attempts,
-#                 'retraining_status': retraining_status,
-#                 # 'retraining_records': [
-#                 #     {
-#                 #         'id': session.id,
-#                 #         'attempt_no': session.attempt_no,
-#                 #         'scheduled_date': session.scheduled_date.isoformat(),
-#                 #         'scheduled_time': session.scheduled_time.strftime('%H:%M'),
-#                 #         'venue': session.venue,
-#                 #         'status': session.status,
-#                 #         'performance_percentage': session.performance_percentage
-#                 #     } for session in existing_sessions
-#                 # ]
-#                 'retraining_records': [
-#                        {
-#                           'id': session.id,
-#                            'attempt_no': session.attempt_no,
-#                            'scheduled_date': session.scheduled_date.isoformat(),
-#                             'scheduled_time': session.scheduled_time.strftime('%H:%M'),
-#                             'venue': session.venue,
-#                             'status': session.status,
-#                             'performance_percentage': session.performance_percentage,
-#                             'session_detail': {
-#                                 'observations_failure_points': session.session_detail.observations_failure_points if hasattr(session, 'session_detail') else None,
-#                                 'trainer_name': session.session_detail.trainer_name if hasattr(session, 'session_detail') else None,
-#                             } if hasattr(session, 'session_detail') else None
-#                         } for session in existing_sessions
-#                     ]
-#             })
-        
-#         return failed_employees
-
-#     def _determine_retraining_status(self, existing_sessions, max_attempts):
-#         """Determine the retraining status based on existing sessions"""
-#         if not existing_sessions.exists():
-#             return 'pending'
-        
-#         latest_session = existing_sessions.first()
-        
-#         if existing_sessions.count() >= max_attempts:
-#             # Check if last attempt was successful
-#             if latest_session.status == 'Completed' and latest_session.performance_percentage and latest_session.performance_percentage >= (latest_session.required_percentage or 60):
-#                 return 'completed'
-#             else:
-#                 return 'failed'  # Max attempts reached without success
-        
-#         if latest_session.status == 'Pending':
-#             return 'scheduled'
-#         elif latest_session.status == 'Completed':
-#             if latest_session.performance_percentage and latest_session.performance_percentage >= (latest_session.required_percentage or 60):
-#                 return 'completed'
-#             else:
-#                 return 'pending'  # Can schedule another attempt
-#         elif latest_session.status == 'Missed':
-#             return 'pending'  # Can reschedule
-        
-#         return 'pending'
-
-#     # @action(detail=False, methods=['get'], url_path='summary')
-#     # def get_summary(self, request):
-#     #     """Get summary statistics for retraining dashboard"""
-#     #     # Get all failed employees
-#     #     failed_response = self.get_failed_employees(request)
-#     #     all_failed = failed_response.data['results']
-        
-#     #     # Calculate summary stats
-#     #     total_failed = len(all_failed)
-#     #     pending = len([emp for emp in all_failed if emp['retraining_status'] == 'pending'])
-#     #     scheduled = len([emp for emp in all_failed if emp['retraining_status'] == 'scheduled'])
-#     #     completed = len([emp for emp in all_failed if emp['retraining_status'] == 'completed'])
-#     #     failed = len([emp for emp in all_failed if emp['retraining_status'] == 'failed'])
-        
-#     #     # Group by evaluation type
-#     #     by_evaluation_type = {}
-#     #     for emp in all_failed:
-#     #         eval_type = emp['evaluation_type']
-#     #         if eval_type not in by_evaluation_type:
-#     #             by_evaluation_type[eval_type] = {
-#     #                 'total': 0,
-#     #                 'pending': 0,
-#     #                 'scheduled': 0,
-#     #                 'completed': 0,
-#     #                 'failed': 0
-#     #             }
-#     #         by_evaluation_type[eval_type]['total'] += 1
-#     #         by_evaluation_type[eval_type][emp['retraining_status']] += 1
-        
-#     #     # Group by department
-#     #     by_department = {}
-#     #     for emp in all_failed:
-#     #         dept_name = emp['department_name']
-#     #         if dept_name not in by_department:
-#     #             by_department[dept_name] = {
-#     #                 'total': 0,
-#     #                 'pending': 0,
-#     #                 'scheduled': 0,
-#     #                 'completed': 0,
-#     #                 'failed': 0
-#     #             }
-#     #         by_department[dept_name]['total'] += 1
-#     #         by_department[dept_name][emp['retraining_status']] += 1
-        
-#     #     return Response({
-#     #         'overall_summary': {
-#     #             'total_failed_employees': total_failed,
-#     #             'pending_retraining': pending,
-#     #             'scheduled_retraining': scheduled,
-#     #             'completed_retraining': completed,
-#     #             'failed_retraining': failed
-#     #         },
-#     #         'by_evaluation_type': by_evaluation_type,
-#     #         'by_department': by_department
-#     #     })
-#     @action(detail=False, methods=['get'], url_path='summary')
-#     def get_summary(self, request):
-#         """Get summary statistics for retraining dashboard"""
-#         # Get all failed employees
-#         failed_response = self.get_failed_employees(request)
-#         all_failed = failed_response.data['results']
-        
-#         # Calculate summary stats
-#         total_failed = len(all_failed)
-#         pending = len([emp for emp in all_failed if emp['retraining_status'] == 'pending'])
-#         scheduled = len([emp for emp in all_failed if emp['retraining_status'] == 'scheduled'])
-#         completed = len([emp for emp in all_failed if emp['retraining_status'] == 'completed'])
-#         failed = len([emp for emp in all_failed if emp['retraining_status'] == 'failed'])
-        
-#         # Group by evaluation type
-#         by_evaluation_type = {}
-#         for emp in all_failed:
-#             eval_type = emp['evaluation_type']
-#             if eval_type not in by_evaluation_type:
-#                 by_evaluation_type[eval_type] = {
-#                     'total': 0,
-#                     'pending': 0,
-#                     'scheduled': 0,
-#                     'completed': 0,
-#                     'failed': 0
-#                 }
-#             by_evaluation_type[eval_type]['total'] += 1
-#             by_evaluation_type[eval_type][emp['retraining_status']] += 1
-        
-#         # Group by department
-#         by_department = {}
-#         for emp in all_failed:
-#             dept_name = emp['department_name']
-#             if dept_name not in by_department:
-#                 by_department[dept_name] = {
-#                     'total': 0,
-#                     'pending': 0,
-#                     'scheduled': 0,
-#                     'completed': 0,
-#                     'failed': 0
-#                 }
-#             by_department[dept_name]['total'] += 1
-#             by_department[dept_name][emp['retraining_status']] += 1
-        
-#         return Response({
-#             'overall_summary': {
-#                 'total_failed_employees': total_failed,
-#                 'pending_retraining': pending,
-#                 'scheduled_retraining': scheduled,
-#                 'completed_retraining': completed,
-#                 'failed_retraining': failed
-#             },
-#             'by_evaluation_type': by_evaluation_type,
-#             'by_department': by_department
-#         })
-
-
-
-from django.db.models import Sum
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from .models import (
-    RetrainingSession, RetrainingSessionDetail, RetrainingConfig, MasterTable,
-    OperatorObservanceSheet, EvaluationLevel2, OperatorPerformanceEvaluation,
-    TenCyclePassingCriteria, TraineeInfo, OJTPassingCriteria, OJTScoreRange,
-    Score, EvaluationPassingCriteria, Department, Level, Station
-)
-from .serializers import RetrainingSessionSerializer
-
 class RetrainingSessionViewSet(viewsets.ModelViewSet):
     queryset = RetrainingSession.objects.all().order_by("-created_at")
     serializer_class = RetrainingSessionSerializer
 
     def create(self, request, *args, **kwargs):
-        """Schedule a new retraining session"""
-        employee_id = request.data.get('employee')
-        level_id = request.data.get('level')
-        department_id = request.data.get('department')
-        station_id = request.data.get('station')
-        evaluation_type = request.data.get('evaluation_type')
+     """Schedule a new retraining session"""
+     employee_id = request.data.get('employee')
+     level_id = request.data.get('level')
+     department_id = request.data.get('department')
+     station_id = request.data.get('station')
+     evaluation_type = request.data.get('evaluation_type')
 
-        if not (employee_id and level_id and department_id and evaluation_type):
-            return Response({
-                "error": "Missing required fields: employee, level, department, evaluation_type"
-            }, status=status.HTTP_400_BAD_REQUEST)
+     if not (employee_id and level_id and department_id and evaluation_type):
+        return Response({
+            "error": "Missing required fields: employee, level, department, evaluation_type"
+        }, status=status.HTTP_400_BAD_REQUEST)
 
-        # Validate evaluation_type
-        valid_evaluation_types = [choice[0] for choice in RetrainingSession._meta.get_field('evaluation_type').choices]
-        if evaluation_type not in valid_evaluation_types:
-            return Response({
-                "error": f"Invalid evaluation_type. Must be one of: {', '.join(valid_evaluation_types)}"
-            }, status=status.HTTP_400_BAD_REQUEST)
+     # Get max allowed retraining sessions for this level and evaluation type
+     config = RetrainingConfig.objects.filter(
+        level_id=level_id, 
+        evaluation_type=evaluation_type
+     ).first()
+     max_retraining_sessions = config.max_count if config else 2
 
-        # Get max allowed retraining sessions for this level and evaluation type
-        config = RetrainingConfig.objects.filter(
-            level_id=level_id, 
-            evaluation_type=evaluation_type
-        ).first()
-        max_retraining_sessions = config.max_count if config else 2
+     # Count existing retraining sessions for this specific combination
+     filter_kwargs = {
+        'employee_id': employee_id,
+        'level_id': level_id,
+        'department_id': department_id,
+        'evaluation_type': evaluation_type
+     }
+    
+     if station_id:
+        filter_kwargs['station_id'] = station_id
 
-        # Count existing retraining sessions for this specific combination
-        filter_kwargs = {
-            'employee_id': employee_id,
-            'level_id': level_id,
-            'department_id': department_id,
-            'evaluation_type': evaluation_type
-        }
-        
-        if station_id:
-            filter_kwargs['station_id'] = station_id
+     existing_sessions = RetrainingSession.objects.filter(**filter_kwargs)
+     existing_count = existing_sessions.count()
 
-        existing_sessions = RetrainingSession.objects.filter(**filter_kwargs)
-        existing_count = existing_sessions.count()
+     if existing_count >= max_retraining_sessions:
+        return Response({
+            'error': f'Maximum retraining sessions ({max_retraining_sessions}) reached for this employee and evaluation combination.'
+        }, status=status.HTTP_400_BAD_REQUEST)
 
-        if existing_count >= max_retraining_sessions:
-            return Response({
-                'error': f'Maximum retraining sessions ({max_retraining_sessions}) reached for this employee and evaluation combination.'
-            }, status=status.HTTP_400_BAD_REQUEST)
-
-        request.data['attempt_no'] = existing_count + 1
-        
-        # Create the main session with scheduling info only
-        response = super().create(request, *args, **kwargs)
-        
-        return response
+     request.data['attempt_no'] = existing_count + 2
+    
+     
+    
+     # Create the main session with scheduling info only
+     response = super().create(request, *args, **kwargs)
+     
+     
+    
+     return response
 
     @action(detail=True, methods=['patch'], url_path='complete-session')
     def complete_session(self, request, pk=None):
@@ -6063,6 +4792,8 @@ class RetrainingSessionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+    
+
     @action(detail=False, methods=['get'], url_path='employee-sessions/(?P<employee_id>[^/.]+)')
     def get_employee_sessions(self, request, employee_id=None):
         """Get all retraining sessions for a specific employee, ordered by attempt number"""
@@ -6092,7 +4823,7 @@ class RetrainingSessionViewSet(viewsets.ModelViewSet):
         """Get all failed employees from all evaluation types with retraining status"""
         failed_employees = []
         
-        # Existing evaluation types
+        # Get failed employees from each evaluation system
         ten_cycle_failed = self._get_10cycle_failed_employees()
         failed_employees.extend(ten_cycle_failed)
         
@@ -6102,19 +4833,10 @@ class RetrainingSessionViewSet(viewsets.ModelViewSet):
         evaluation_failed = self._get_evaluation_failed_employees()
         failed_employees.extend(evaluation_failed)
         
-        # New evaluation types
-        operator_observance_failed = self._get_operator_observance_failed_employees()
-        failed_employees.extend(operator_observance_failed)
-        
-        evaluation_level2_failed = self._get_evaluation_level2_failed_employees()
-        failed_employees.extend(evaluation_level2_failed)
-        
-        print(f"10 Cycle failures: {len(ten_cycle_failed)}")
-        print(f"OJT failures: {len(ojt_failed)}")
-        print(f"Evaluation failures: {len(evaluation_failed)}")
-        print(f"Operator Observance failures: {len(operator_observance_failed)}")
-        print(f"Evaluation Level 2 failures: {len(evaluation_level2_failed)}")
-        print(f"Total failures: {len(failed_employees)}")
+        print(f"10 Cycle failures: {len(ten_cycle_failed)}")      
+        print(f"OJT failures: {len(ojt_failed)}")                  
+        print(f"Evaluation failures: {len(evaluation_failed)}")  
+        print(f"Total failures: {len(failed_employees)}") 
         
         # Apply filters
         department_id = request.query_params.get('department_id')
@@ -6122,400 +4844,130 @@ class RetrainingSessionViewSet(viewsets.ModelViewSet):
         status_filter = request.query_params.get('status')
         
         if department_id:
-            failed_employees = [
-                emp for emp in failed_employees 
-                if emp.get('department_id') == int(department_id)
-            ]
+            failed_employees = [emp for emp in failed_employees if emp.get('department_id') == int(department_id)]
         
         if evaluation_type:
-            failed_employees = [
-                emp for emp in failed_employees 
-                if emp.get('evaluation_type') == evaluation_type
-            ]
+            failed_employees = [emp for emp in failed_employees if emp.get('evaluation_type') == evaluation_type]
             
         if status_filter:
-            failed_employees = [
-                emp for emp in failed_employees 
-                if emp.get('retraining_status') == status_filter
-            ]
+            failed_employees = [emp for emp in failed_employees if emp.get('retraining_status') == status_filter]
         
         return Response({
             'count': len(failed_employees),
             'results': failed_employees
         })
-
-    def _get_operator_observance_failed_employees(self):
-        """Get failed employees from OperatorObservanceSheet evaluations"""
-        failed_employees = []
         
-        # Include both 'Fail' and 'Re-training' results (case-insensitive)
-        failed_sheets = OperatorObservanceSheet.objects.filter(
-            result__in=['Fail', 'Re-training']
-        ).prefetch_related('topics')
         
-        for sheet in failed_sheets:
-            try:
-                # Try to map operator_name to MasterTable
-                employee = MasterTable.objects.filter(
-                    first_name__iexact=sheet.operator_name.split()[0],
-                    last_name__iexact=' '.join(sheet.operator_name.split()[1:]) if len(sheet.operator_name.split()) > 1 else ''
-                ).first()
-                if not employee:
-                    continue  # Skip if no matching employee found
-                
-                # Get department and level
-                level = Level.objects.filter(level_name=sheet.level).first()
-                if not level:
-                    continue  # Skip if level not found
-                
-                department = None
-                if sheet.topics.exists():
-                    department = sheet.topics.first().department
-                elif employee.department:
-                    department = employee.department
-                if not department:
-                    continue  # Skip if department not found
-                
-                # Map process_name to Station
-                station = Station.objects.filter(station_name=sheet.process_name).first()
-                
-                # Parse marks_obtained (e.g., "77 / 78")
-                obtained = 0
-                total = 1  # Avoid division by zero
-                if sheet.marks_obtained and '/' in sheet.marks_obtained:
-                    try:
-                        obtained_str, total_str = sheet.marks_obtained.split('/')
-                        obtained = float(obtained_str.strip())
-                        total = float(total_str.strip())
-                    except ValueError:
-                        obtained = 0
-                        total = 1
-                obtained_percentage = (obtained / total * 100) if total > 0 else 0
-                
-                # Use default passing percentage
-                required_percentage = 80.0  # Default for OperatorObservanceSheet
-                gap = required_percentage - obtained_percentage
-                
-                # Get retraining sessions
-                existing_sessions = RetrainingSession.objects.filter(
-                    employee=employee,
-                    level=level,
-                    department=department,
-                    evaluation_type='Operator Observance',
-                    station=station
-                ).select_related('session_detail').order_by('-attempt_no')
-                
-                # Get max allowed attempts
-                config = RetrainingConfig.objects.filter(
-                    level=level, 
-                    evaluation_type='Operator Observance'
-                ).first()
-                max_attempts = config.max_count if config else 2
-                
-                retraining_status = self._determine_retraining_status(existing_sessions, max_attempts)
-                
-                failed_employees.append({
-                    'employee_pk': employee.emp_id,
-                    'employee_id': employee.emp_id,
-                    'employee_name': sheet.operator_name,
-                    'department_id': department.department_id,
-                    'department_name': department.department_name,
-                    'station_id': station.station_id if station else None,
-                    'station_name': sheet.process_name,
-                    'level_id': level.level_id,
-                    'level_name': level.level_name,
-                    'evaluation_type': 'Operator Observance',
-                    'obtained_percentage': round(obtained_percentage, 2),
-                    'required_percentage': required_percentage,
-                    'performance_gap': round(gap, 2),
-                    'last_evaluation_date': sheet.evaluation_end_date.isoformat(),
-                    'existing_sessions_count': existing_sessions.count(),
-                    'max_attempts': max_attempts,
-                    'can_schedule_retraining': existing_sessions.count() < max_attempts,
-                    'retraining_status': retraining_status,
-                    'retraining_records': [
-                        {
-                            'id': session.id,
-                            'attempt_no': session.attempt_no,
-                            'scheduled_date': session.scheduled_date.isoformat(),
-                            'scheduled_time': session.scheduled_time.strftime('%H:%M'),
-                            'venue': session.venue,
-                            'status': session.status,
-                            'performance_percentage': session.performance_percentage,
-                            'session_detail': {
-                                'observations_failure_points': session.session_detail.observations_failure_points if hasattr(session, 'session_detail') else None,
-                                'trainer_name': session.session_detail.trainer_name if hasattr(session, 'session_detail') else None,
-                            } if hasattr(session, 'session_detail') else None
-                        } for session in existing_sessions
-                    ]
-                })
-            except Exception as e:
-                print(f"Error processing OperatorObservanceSheet for {sheet.operator_name}: {str(e)}")
-                continue
-        
-        return failed_employees
-
-    def _get_evaluation_level2_failed_employees(self):
-        """Get failed employees from EvaluationLevel2 evaluations"""
-        failed_employees = []
-        
-        failed_evaluations = EvaluationLevel2.objects.filter(
-            status__in=[EvaluationLevel2.STATUS_FAIL, EvaluationLevel2.STATUS_RE_EVAL_FAIL]
-        ).select_related('employee', 'department', 'level')
-        
-        for evaluation in failed_evaluations:
-            try:
-                # Use default passing percentage
-                required_percentage = 80.0  # Default for EvaluationLevel2
-                obtained_percentage = float(evaluation.total_marks or 0)
-                gap = required_percentage - obtained_percentage
-                
-                # Get station
-                station = Station.objects.filter(station_name=evaluation.station_name).first()
-                
-                # Get retraining sessions
-                existing_sessions = RetrainingSession.objects.filter(
-                    employee=evaluation.employee,
-                    level=evaluation.level,
-                    department=evaluation.department,
-                    evaluation_type='Skill Evaluation Level 2',
-                    station=station
-                ).select_related('session_detail').order_by('-attempt_no')
-                
-                # Get max allowed attempts
-                config = RetrainingConfig.objects.filter(
-                    level=evaluation.level, 
-                    evaluation_type='Skill Evaluation Level 2'
-                ).first()
-                max_attempts = config.max_count if config else 2
-                
-                retraining_status = self._determine_retraining_status(existing_sessions, max_attempts)
-                
-                failed_employees.append({
-                    'employee_pk': evaluation.employee.emp_id,
-                    'employee_id': evaluation.employee.emp_id,
-                    'employee_name': evaluation.snapshot_full_name,
-                    'department_id': evaluation.department.department_id if evaluation.department else None,
-                    'department_name': evaluation.department.department_name if evaluation.department else 'N/A',
-                    'station_id': station.station_id if station else None,
-                    'station_name': evaluation.station_name,
-                    'level_id': evaluation.level.level_id,
-                    'level_name': evaluation.level.level_name,
-                    'evaluation_type': 'Skill Evaluation Level 2',
-                    'obtained_percentage': round(obtained_percentage, 2),
-                    'required_percentage': required_percentage,
-                    'performance_gap': round(gap, 2),
-                    'last_evaluation_date': evaluation.evaluation_date.isoformat(),
-                    'existing_sessions_count': existing_sessions.count(),
-                    'max_attempts': max_attempts,
-                    'can_schedule_retraining': existing_sessions.count() < max_attempts,
-                    'retraining_status': retraining_status,
-                    'retraining_records': [
-                        {
-                            'id': session.id,
-                            'attempt_no': session.attempt_no,
-                            'scheduled_date': session.scheduled_date.isoformat(),
-                            'scheduled_time': session.scheduled_time.strftime('%H:%M'),
-                            'venue': session.venue,
-                            'status': session.status,
-                            'performance_percentage': session.performance_percentage,
-                            'session_detail': {
-                                'observations_failure_points': session.session_detail.observations_failure_points if hasattr(session, 'session_detail') else None,
-                                'trainer_name': session.session_detail.trainer_name if hasattr(session, 'session_detail') else None,
-                            } if hasattr(session, 'session_detail') else None
-                        } for session in existing_sessions
-                    ]
-                })
-            except Exception as e:
-                print(f"Error processing EvaluationLevel2 for {evaluation.employee.emp_id}: {str(e)}")
-                continue
-        
-        return failed_employees
 
     def _get_10cycle_failed_employees(self):
-        """Get failed employees from 10 Cycle evaluations"""
+        # """Get failed employees from 10 Cycle evaluations"""
+        # failed_employees = []
+        
+        # evaluations = OperatorPerformanceEvaluation.objects.filter(
+        #     final_status='Fail - Retraining Required',
+        #     is_completed=True
+        # ).select_related('employee', 'department', 'station', 'level')
+    
         failed_employees = []
+    
         
         all_evaluations = OperatorPerformanceEvaluation.objects.all()
         print(f"Total OperatorPerformanceEvaluations: {all_evaluations.count()}")
+    
         
         unique_statuses = OperatorPerformanceEvaluation.objects.values_list('final_status', flat=True).distinct()
         print(f"All final_status values in DB: {list(unique_statuses)}")
+    
         
         completed_values = OperatorPerformanceEvaluation.objects.values_list('is_completed', flat=True).distinct()
         print(f"All is_completed values in DB: {list(completed_values)}")
+    
         
         fail_evaluations = OperatorPerformanceEvaluation.objects.filter(
-            final_status__icontains='Fail'
+         final_status__icontains='Fail'
         )
         print(f"Evaluations containing 'Fail': {fail_evaluations.count()}")
         for eval in fail_evaluations:
-            print(f"  - Status: '{eval.final_status}' | Completed: {eval.is_completed} | Employee: {eval.employee}")
+         print(f"  - Status: '{eval.final_status}' | Completed: {eval.is_completed} | Employee: {eval.employee}")
+    
         
         evaluations = OperatorPerformanceEvaluation.objects.filter(
-            final_status='Fail - Retraining Required',
-            is_completed=True
+          final_status='Fail - Retraining Required',
+          is_completed=True
         ).select_related('employee', 'department', 'station', 'level')
-        
+    
         print(f"Evaluations matching exact criteria: {evaluations.count()}")
         
         for evaluation in evaluations:
+            # Get passing criteria
             try:
-                # Get passing criteria
-                criteria = TenCyclePassingCriteria.objects.filter(
+                criteria = TenCyclePassingCriteria.objects.get(
                     level=evaluation.level,
                     department=evaluation.department,
                     station=evaluation.station,
                     is_active=True
-                ).first()
-                required_percentage = criteria.passing_percentage if criteria else 60.0
-                
-                # Get retraining sessions
-                existing_sessions = RetrainingSession.objects.filter(
-                    employee=evaluation.employee,
-                    level=evaluation.level,
-                    department=evaluation.department,
-                    station=evaluation.station,
-                    evaluation_type='10 Cycle'
-                ).select_related('session_detail').order_by('-attempt_no')
-                
-                # Get max allowed attempts
-                config = RetrainingConfig.objects.filter(
-                    level=evaluation.level, 
-                    evaluation_type='10 Cycle'
-                ).first()
-                max_attempts = config.max_count if config else 2
-                
-                retraining_status = self._determine_retraining_status(existing_sessions, max_attempts)
-                
-                gap = required_percentage - (evaluation.final_percentage or 0)
-                
-                failed_employees.append({
-                    'employee_pk': evaluation.employee.emp_id,
-                    'employee_id': evaluation.employee.emp_id,
-                    'employee_name': f"{evaluation.employee.first_name or ''} {evaluation.employee.last_name or ''}".strip(),
-                    'department_id': evaluation.department.department_id,
-                    'department_name': evaluation.department.department_name,
-                    'station_id': evaluation.station.station_id if evaluation.station else None,
-                    'station_name': evaluation.station.station_name if evaluation.station else 'N/A',
-                    'level_id': evaluation.level.level_id,
-                    'level_name': evaluation.level.level_name,
-                    'evaluation_type': '10 Cycle',
-                    'obtained_percentage': round(evaluation.final_percentage or 0, 2),
-                    'required_percentage': required_percentage,
-                    'performance_gap': round(gap, 2),
-                    'last_evaluation_date': evaluation.date.isoformat(),
-                    'existing_sessions_count': existing_sessions.count(),
-                    'max_attempts': max_attempts,
-                    'can_schedule_retraining': existing_sessions.count() < max_attempts,
-                    'retraining_status': retraining_status,
-                    'retraining_records': [
-                        {
-                            'id': session.id,
-                            'attempt_no': session.attempt_no,
-                            'scheduled_date': session.scheduled_date.isoformat(),
-                            'scheduled_time': session.scheduled_time.strftime('%H:%M'),
-                            'venue': session.venue,
-                            'status': session.status,
-                            'performance_percentage': session.performance_percentage,
-                            'session_detail': {
-                                'observations_failure_points': session.session_detail.observations_failure_points if hasattr(session, 'session_detail') else None,
-                                'trainer_name': session.session_detail.trainer_name if hasattr(session, 'session_detail') else None,
-                            } if hasattr(session, 'session_detail') else None
-                        } for session in existing_sessions
-                    ]
-                })
-            except Exception as e:
-                print(f"Error processing OperatorPerformanceEvaluation for {evaluation.employee.emp_id}: {str(e)}")
-                continue
-        
-        return failed_employees
-
-    def _get_ojt_failed_employees(self):
-        """Get failed employees from OJT evaluations"""
-        failed_employees = []
-        
-        trainees = TraineeInfo.objects.filter(status='Fail')
-        
-        for trainee in trainees:
-            try:
-                # Get trainee's score info to determine department/level
-                trainee_score = trainee.scores.select_related('topic', 'topic__department', 'topic__level', 'day').first()
-                if not trainee_score:
-                    continue
-
-                department = trainee_score.topic.department
-                level = trainee_score.topic.level
-                day = trainee_score.day
-
-                # Get passing criteria
-                criteria = (
-                    OJTPassingCriteria.objects.filter(department=department, level=level, day=day).first()
-                    or OJTPassingCriteria.objects.filter(department=department, level=level, day__isnull=True).first()
                 )
-                required_percentage = criteria.percentage if criteria else 60.0
-
-                # Calculate obtained percentage
-                total_score = trainee.scores.aggregate(total=Sum("score"))["total"] or 0
-                total_topics = trainee.scores.count()
-
-                obtained_percentage = 0
-                if total_topics > 0:
-                    score_range = OJTScoreRange.objects.filter(
-                        department=department,
-                        level=level
-                    ).first()
-                    max_score = score_range.max_score if score_range else 5
-                    obtained_percentage = (total_score / (total_topics * max_score)) * 100
-
-                # Try to match trainee with MasterTable
-                employee = MasterTable.objects.filter(emp_id=trainee.emp_id).first()
-                employee_pk = employee.pk if employee else None
-
-                # Get retraining sessions (only if mapped to MasterTable)
-                if employee:
-                    existing_sessions = RetrainingSession.objects.filter(
-                        employee=employee,
-                        level=level,
-                        department=department,
-                        evaluation_type='OJT'
-                    ).select_related('session_detail').order_by('-attempt_no')
-
-                    config = RetrainingConfig.objects.filter(level=level, evaluation_type='OJT').first()
-                    max_attempts = config.max_count if config else 2
-
-                    retraining_status = self._determine_retraining_status(existing_sessions, max_attempts)
-                else:
-                    existing_sessions = []
-                    max_attempts = 0
-                    retraining_status = "not_mapped"
-
-                gap = required_percentage - obtained_percentage
-
-                failed_employees.append({
-                    'employee_pk': employee_pk, 
-                    'employee_id': trainee.emp_id,
-                    'employee_name': trainee.trainee_name,
-                    'department_id': department.department_id,
-                    'department_name': department.department_name,
-                    'station_id': None,
-                    'station_name': trainee.station,
-                    'level_id': level.level_id,
-                    'level_name': level.level_name,
-                    'evaluation_type': 'OJT',
-                    'obtained_percentage': round(obtained_percentage, 2),
-                    'required_percentage': required_percentage,
-                    'performance_gap': round(gap, 2),
-                    'last_evaluation_date': trainee.doj.isoformat() if trainee.doj else None,
-                    'existing_sessions_count': len(existing_sessions),
-                    'max_attempts': max_attempts,
-                    'can_schedule_retraining': employee is not None and len(existing_sessions) < max_attempts,
-                    'retraining_status': retraining_status,
-                    'retraining_records': [
-                        {
-                            'id': session.id,
-                            'attempt_no': session.attempt_no,
-                            'scheduled_date': session.scheduled_date.isoformat(),
+                required_percentage = criteria.passing_percentage
+            except TenCyclePassingCriteria.DoesNotExist:
+                required_percentage = 60.0
+            
+            # Get retraining sessions for this employee/evaluation combo
+            existing_sessions = RetrainingSession.objects.filter(
+                employee=evaluation.employee,
+                level=evaluation.level,
+                department=evaluation.department,
+                station=evaluation.station,
+                evaluation_type='10 Cycle'
+            ).select_related('session_detail').order_by('-attempt_no')
+            # ).order_by('-attempt_no')
+            
+            # Get max allowed attempts
+            config = RetrainingConfig.objects.filter(
+                level=evaluation.level, 
+                evaluation_type='10 Cycle'
+            ).first()
+            max_attempts = config.max_count if config else 2
+            
+            # Determine retraining status
+            retraining_status = self._determine_retraining_status(existing_sessions, max_attempts)
+            
+            gap = required_percentage - (evaluation.final_percentage or 0)
+            
+            failed_employees.append({
+                'employee_pk': evaluation.employee.emp_id,
+                'employee_id': evaluation.employee.emp_id,
+                'employee_name': f"{evaluation.employee.first_name or ''} {evaluation.employee.last_name or ''}".strip(),
+                'department_id': evaluation.department.department_id,
+                'department_name': evaluation.department.department_name,
+                'station_id': evaluation.station.station_id if evaluation.station else None,
+                'station_name': evaluation.station.station_name if evaluation.station else 'N/A',
+                'level_id': evaluation.level.level_id,
+                'level_name': evaluation.level.level_name,
+                'evaluation_type': '10 Cycle',
+                'obtained_percentage': round(evaluation.final_percentage or 0, 2),
+                'required_percentage': required_percentage,
+                'performance_gap': round(gap, 2),
+                'last_evaluation_date': evaluation.date.isoformat(),
+                'existing_sessions_count': existing_sessions.count(),
+                'max_attempts': max_attempts,
+                'can_schedule_retraining': existing_sessions.count() < max_attempts,
+                'retraining_status': retraining_status,
+                # 'retraining_records': [
+                #     {
+                #         'id': session.id,
+                #         'attempt_no': session.attempt_no,
+                #         'scheduled_date': session.scheduled_date.isoformat(),
+                #         'scheduled_time': session.scheduled_time.strftime('%H:%M'),
+                #         'venue': session.venue,
+                #         'status': session.status,
+                #         'performance_percentage': session.performance_percentage
+                #     } for session in existing_sessions
+                # ]
+                                'retraining_records': [
+                       {
+                          'id': session.id,
+                           'attempt_no': session.attempt_no,
+                           'scheduled_date': session.scheduled_date.isoformat(),
                             'scheduled_time': session.scheduled_time.strftime('%H:%M'),
                             'venue': session.venue,
                             'status': session.status,
@@ -6526,12 +4978,131 @@ class RetrainingSessionViewSet(viewsets.ModelViewSet):
                             } if hasattr(session, 'session_detail') else None
                         } for session in existing_sessions
                     ]
-                })
-            except Exception as e:
-                print(f"Error processing TraineeInfo for {trainee.emp_id}: {str(e)}")
-                continue
+            })
         
         return failed_employees
+
+
+    
+    
+    def _get_ojt_failed_employees(self):
+     """Get failed employees from OJT evaluations"""
+     failed_employees = []
+    
+     trainees = TraineeInfo.objects.filter(status='Fail')
+    
+     for trainee in trainees:
+        # Get trainee's score info to determine department/level
+        trainee_score = trainee.scores.select_related('topic_department', 'topic_level', 'day').first()
+        if not trainee_score:
+            continue
+
+        department = trainee_score.topic.department
+        level = trainee_score.topic.level
+        day = trainee_score.day
+
+        # Get passing criteria
+        criteria = (
+            OJTPassingCriteria.objects.filter(department=department, level=level, day=day).first()
+            or OJTPassingCriteria.objects.filter(department=department, level=level, day__isnull=True).first()
+        )
+        required_percentage = criteria.percentage if criteria else 60.0
+
+        # Calculate obtained percentage
+        from django.db.models import Sum
+        total_score = trainee.scores.aggregate(total=Sum("score"))["total"] or 0
+        total_topics = trainee.scores.count()
+
+        obtained_percentage = 0
+        if total_topics > 0:
+            try:
+                score_range = OJTScoreRange.objects.filter(
+                    department=department,
+                    level=level
+                ).first()
+                max_score = score_range.max_score if score_range else 5
+                obtained_percentage = (total_score / (total_topics * max_score)) * 100
+            except:
+                obtained_percentage = 0
+
+        # Try to match trainee with MasterTable
+        try:
+            employee = MasterTable.objects.get(emp_id=trainee.emp_id)
+            employee_pk = employee.pk
+        except MasterTable.DoesNotExist:
+            employee = None
+            employee_pk = None
+
+        # Get retraining sessions (only if mapped to MasterTable)
+        if employee:
+            existing_sessions = RetrainingSession.objects.filter(
+                employee=employee,
+                level=level,
+                department=department,
+                evaluation_type='OJT'
+            ).select_related('session_detail').order_by('-attempt_no')
+            # ).order_by('-attempt_no')
+
+            config = RetrainingConfig.objects.filter(level=level, evaluation_type='OJT').first()
+            max_attempts = config.max_count if config else 2
+
+            retraining_status = self._determine_retraining_status(existing_sessions, max_attempts)
+        else:
+            existing_sessions = []
+            max_attempts = 0
+            retraining_status = "not_mapped"  # Or "N/A"
+
+        gap = required_percentage - obtained_percentage
+
+        failed_employees.append({
+            'employee_pk': employee_pk, 
+            'employee_id': trainee.emp_id,
+            'employee_name': trainee.trainee_name,
+            'department_id': department.department_id,
+            'department_name': department.department_name,
+            'station_id': None,
+            'station_name': trainee.station,
+            'level_id': level.level_id,
+            'level_name': level.level_name,
+            'evaluation_type': 'OJT',
+            'obtained_percentage': round(obtained_percentage, 2),
+            'required_percentage': required_percentage,
+            'performance_gap': round(gap, 2),
+            'last_evaluation_date': trainee.doj.isoformat() if trainee.doj else None,
+            'existing_sessions_count': len(existing_sessions),
+            'max_attempts': max_attempts,
+            'can_schedule_retraining': employee is not None and len(existing_sessions) < max_attempts,
+            'retraining_status': retraining_status,
+            # 'retraining_records': [
+            #     {
+            #         'id': session.id,
+            #         'attempt_no': session.attempt_no,
+            #         'scheduled_date': session.scheduled_date.isoformat(),
+            #         'scheduled_time': session.scheduled_time.strftime('%H:%M'),
+            #         'venue': session.venue,
+            #         'status': session.status,
+            #         'performance_percentage': session.performance_percentage
+            #     } for session in existing_sessions
+            # ]
+                            'retraining_records': [
+                       {
+                          'id': session.id,
+                           'attempt_no': session.attempt_no,
+                           'scheduled_date': session.scheduled_date.isoformat(),
+                            'scheduled_time': session.scheduled_time.strftime('%H:%M'),
+                            'venue': session.venue,
+                            'status': session.status,
+                            'performance_percentage': session.performance_percentage,
+                            'session_detail': {
+                                'observations_failure_points': session.session_detail.observations_failure_points if hasattr(session, 'session_detail') else None,
+                                'trainer_name': session.session_detail.trainer_name if hasattr(session, 'session_detail') else None,
+                            } if hasattr(session, 'session_detail') else None
+                        } for session in existing_sessions
+                    ]
+        })
+ 
+     return failed_employees
+
 
     def _get_evaluation_failed_employees(self):
         """Get failed employees from Evaluation tests"""
@@ -6542,64 +5113,78 @@ class RetrainingSessionViewSet(viewsets.ModelViewSet):
         )
         
         for score in failed_scores:
-            try:
-                if not score.employee or not score.level:
-                    continue
+            if not score.employee or not score.level:
+                continue
                 
-                # Get department
-                department = None
-                if hasattr(score.employee, 'department') and score.employee.department:
-                    department = score.employee.department
-                elif score.skill and hasattr(score.skill, 'subline'):
+            # Get department
+            department = None
+            if hasattr(score.employee, 'department') and score.employee.department:
+                department = score.employee.department
+            elif score.skill and hasattr(score.skill, 'subline'):
+                try:
                     department = score.skill.subline.line.department
-                if not department:
+                except AttributeError:
                     continue
-                
-                # Get passing criteria
-                criteria = EvaluationPassingCriteria.objects.filter(
-                    level=score.level,
-                    department=department
-                ).first()
-                required_percentage = float(criteria.percentage) if criteria else 80.0
-                
-                # Get retraining sessions
-                existing_sessions = RetrainingSession.objects.filter(
-                    employee=score.employee,
-                    level=score.level,
-                    department=department,
-                    evaluation_type='Evaluation'
-                ).select_related('session_detail').order_by('-attempt_no')
-                
-                config = RetrainingConfig.objects.filter(level=score.level, evaluation_type='Evaluation').first()
-                max_attempts = config.max_count if config else 2
-                
-                retraining_status = self._determine_retraining_status(existing_sessions, max_attempts)
-                gap = required_percentage - score.percentage
-                
-                failed_employees.append({
-                    'employee_pk': score.employee.emp_id,
-                    'employee_id': score.employee.emp_id,
-                    'employee_name': f"{score.employee.first_name or ''} {score.employee.last_name or ''}".strip(),
-                    'department_id': department.department_id,
-                    'department_name': department.department_name,
-                    'station_id': score.skill.station_id if score.skill else None,
-                    'station_name': score.skill.station_name if score.skill else 'N/A',
-                    'level_id': score.level.level_id,
-                    'level_name': score.level.level_name,
-                    'evaluation_type': 'Evaluation',
-                    'obtained_percentage': round(score.percentage, 2),
-                    'required_percentage': required_percentage,
-                    'performance_gap': round(gap, 2),
-                    'last_evaluation_date': score.created_at.date().isoformat(),
-                    'existing_sessions_count': existing_sessions.count(),
-                    'max_attempts': max_attempts,
-                    'can_schedule_retraining': existing_sessions.count() < max_attempts,
-                    'retraining_status': retraining_status,
-                    'retraining_records': [
-                        {
-                            'id': session.id,
-                            'attempt_no': session.attempt_no,
-                            'scheduled_date': session.scheduled_date.isoformat(),
+            else:
+                continue
+            
+            # Get passing criteria
+            criteria = EvaluationPassingCriteria.objects.filter(
+                level=score.level,
+                department=department
+            ).first()
+            required_percentage = float(criteria.percentage) if criteria else 80.0
+            
+            # Get retraining sessions
+            existing_sessions = RetrainingSession.objects.filter(
+                employee=score.employee,
+                level=score.level,
+                department=department,
+                evaluation_type='Evaluation'
+            ).select_related('session_detail').order_by('-attempt_no')
+            # ).order_by('-attempt_no')
+            
+            config = RetrainingConfig.objects.filter(level=score.level, evaluation_type='Evaluation').first()
+            max_attempts = config.max_count if config else 2
+            
+            retraining_status = self._determine_retraining_status(existing_sessions, max_attempts)
+            gap = required_percentage - score.percentage
+            
+            failed_employees.append({
+                'employee_pk': score.employee.emp_id,
+                'employee_id': score.employee.emp_id,
+                'employee_name': f"{score.employee.first_name or ''} {score.employee.last_name or ''}".strip(),
+                'department_id': department.department_id,
+                'department_name': department.department_name,
+                'station_id': score.skill.station_id if score.skill else None,
+                'station_name': score.skill.station_name if score.skill else 'N/A',
+                'level_id': score.level.level_id,
+                'level_name': score.level.level_name,
+                'evaluation_type': 'Evaluation',
+                'obtained_percentage': round(score.percentage, 2),
+                'required_percentage': required_percentage,
+                'performance_gap': round(gap, 2),
+                'last_evaluation_date': score.created_at.date().isoformat(),
+                'existing_sessions_count': existing_sessions.count(),
+                'max_attempts': max_attempts,
+                'can_schedule_retraining': existing_sessions.count() < max_attempts,
+                'retraining_status': retraining_status,
+                # 'retraining_records': [
+                #     {
+                #         'id': session.id,
+                #         'attempt_no': session.attempt_no,
+                #         'scheduled_date': session.scheduled_date.isoformat(),
+                #         'scheduled_time': session.scheduled_time.strftime('%H:%M'),
+                #         'venue': session.venue,
+                #         'status': session.status,
+                #         'performance_percentage': session.performance_percentage
+                #     } for session in existing_sessions
+                # ]
+                'retraining_records': [
+                       {
+                          'id': session.id,
+                           'attempt_no': session.attempt_no,
+                           'scheduled_date': session.scheduled_date.isoformat(),
                             'scheduled_time': session.scheduled_time.strftime('%H:%M'),
                             'venue': session.venue,
                             'status': session.status,
@@ -6610,10 +5195,7 @@ class RetrainingSessionViewSet(viewsets.ModelViewSet):
                             } if hasattr(session, 'session_detail') else None
                         } for session in existing_sessions
                     ]
-                })
-            except Exception as e:
-                print(f"Error processing Score for {score.employee.emp_id}: {str(e)}")
-                continue
+            })
         
         return failed_employees
 
@@ -6698,8 +5280,7 @@ class RetrainingSessionViewSet(viewsets.ModelViewSet):
             'by_evaluation_type': by_evaluation_type,
             'by_department': by_department
         })
-
-
+    
 # =================== Retraining end ============================= #
 
 from rest_framework import viewsets
@@ -10190,6 +8771,91 @@ class DefectsChartView(APIView):
         serializer = DefectsChartSerializer(data, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
     
+
+# your_app/views.py
+from django.http import HttpResponse, JsonResponse # <-- Import JsonResponse
+from django.views.decorators.csrf import csrf_exempt # For API views, often helpful
+from rest_framework.parsers import MultiPartParser
+from rest_framework.views import APIView
+import pandas as pd
+from .serializers import ManagementReviewSerializer
+
+# We can refactor the upload view into a DRF APIView for better structure
+class ManagementReviewUploadAPIView(APIView):
+    parser_classes = [MultiPartParser] # Handles multipart/form-data for file uploads
+
+    def post(self, request, format=None):
+        excel_file = request.FILES.get("excel_file")
+
+        if not excel_file:
+            return JsonResponse({"error": "No file was uploaded."}, status=400)
+
+        if not excel_file.name.endswith(('.xls', '.xlsx')):
+            return JsonResponse({"error": "Invalid file format. Please upload an Excel file."}, status=400)
+
+        try:
+            df = pd.read_excel(excel_file)
+            df = df.where(pd.notnull(df), None)
+        except Exception as e:
+            return JsonResponse({"error": f"Error reading Excel file: {e}"}, status=400)
+
+        successful_uploads = 0
+        failed_uploads = []
+
+        for index, row in df.iterrows():
+            row_data = row.to_dict()
+            serializer = ManagementReviewSerializer(data=row_data)
+            
+            if serializer.is_valid():
+                try:
+                    serializer.save()
+                    successful_uploads += 1
+                except Exception as e:
+                    failed_uploads.append({'row': index + 2, 'errors': str(e)})
+            else:
+                failed_uploads.append({'row': index + 2, 'errors': serializer.errors})
+        
+        if not failed_uploads:
+            return JsonResponse({
+                "message": "All rows uploaded successfully!",
+                "successful_uploads": successful_uploads,
+                "failed_uploads_count": len(failed_uploads),
+                "errors": []
+            }, status=201)
+        else:
+            return JsonResponse({
+                "message": f"Upload completed with {len(failed_uploads)} errors.",
+                "successful_uploads": successful_uploads,
+                "failed_uploads_count": len(failed_uploads),
+                "errors": failed_uploads
+            }, status=207) # 207 Multi-Status is appropriate here
+
+# The download view remains the same.
+def download_sample_excel(request):
+    columns = [
+        "hq", "factory", "department", "month", "year",
+        "new_operators_joined", "new_operators_trained",
+        "total_training_plans", "total_trainings_actual",
+        "total_defects_msil", "ctq_defects_msil",
+        "total_defects_tier1", "ctq_defects_tier1",
+        "total_internal_rejection", "ctq_internal_rejection"
+    ]
+    sample_data = [{
+        "hq": "HQ-North", "factory": "Factory-A", "department": "Assembly",
+        "month": 1, "year": 2023, "new_operators_joined": 10,
+        "new_operators_trained": 8, "total_training_plans": 20,
+        "total_trainings_actual": 18, "total_defects_msil": 5,
+        "ctq_defects_msil": 2, "total_defects_tier1": 3,
+        "ctq_defects_tier1": 1, "total_internal_rejection": 15,
+        "ctq_internal_rejection": 4
+    }]
+    df = pd.DataFrame(sample_data, columns=columns)
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = 'attachment; filename="management_review_sample.xlsx"'
+    df.to_excel(response, index=False)
+    return response
 
 
 

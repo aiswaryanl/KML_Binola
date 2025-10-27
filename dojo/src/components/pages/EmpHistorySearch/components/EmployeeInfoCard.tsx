@@ -27,16 +27,18 @@ const EmployeeInfoCard: React.FC<EmployeeInfoCardProps> = ({ employee }) => {
                 <div className='space-y-4'>
                     <InfoField label='Name' value={displayName} />
                     <InfoField label='Card No' value={employee.emp_id} />
-                    <InfoField label='Guardian' value={employee.guardian_name} />
+                    {/* <InfoField label='Guardian' value={employee.guardian_name} /> */}
                     <InfoField label='Gender' value={employee.sex} />
                     <InfoField label='Birth Date' value={employee.birth_date} />
                 </div>
                 <div className='space-y-4'>
-                    <InfoField label='Department' value={employee.department_name} />
-                    <InfoField label='Section' value={employee.section} />
-                    <InfoField label='Designation' value={employee.desig_category} />
+                    <InfoField label='Department' value={employee.department} />
+                    {/* <InfoField label='Section' value={employee.section} /> */}
+                    <InfoField label='Email' value={employee.email} />
+                    <InfoField label='Phone' value={employee.phone} />
+                    {/* <InfoField label='Designation' value={employee.desig_category} /> */}
                     <InfoField label='Joining Date' value={employee.date_of_joining} />
-                    <InfoField label='Pay Code' value={employee.pay_code} />
+                    {/* <InfoField label='Pay Code' value={employee.pay_code} /> */}
                 </div>
             </div>
         </div>
