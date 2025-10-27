@@ -869,6 +869,85 @@ const Plan = () => {
     return { startDate: toYYYYMMDD(startDate), endDate: toYYYYMMDD(endDate) };
   };
 
+
+
+
+
+
+
+
+  // useEffect(() => {
+  //   const fetchAndProcessStructures = async () => {
+  //     setIsLoading(true);
+  //     try {
+  //       const response = await api.get<ApiHierarchyResponseItem[]>('/hierarchy-simple/');
+  //       const apiData = response.data;
+        
+  //       const factoriesMap = new Map<number, FactoryStructure>();
+  //       const hqMap = new Map<number, string>();
+
+  //       apiData.forEach(item => {
+  //           if (item.hq && item.hq_name && !hqMap.has(item.hq)) { hqMap.set(item.hq, item.hq_name); }
+  //           if (!item.factory || !item.factory_name) return;
+
+  //           let factory = factoriesMap.get(item.factory);
+  //           if (!factory) {
+  //               factory = { factory_id: item.factory, factory_name: item.factory_name, hq: item.hq, departments: [] };
+  //               factoriesMap.set(item.factory, factory);
+  //           }
+
+  //           item.structure_data?.departments?.forEach(deptData => {
+  //               if (!deptData.id || !deptData.department_name) return;
+  //               let department = factory.departments.find(d => d.department_id === deptData.id);
+  //               if (!department) {
+  //                   department = { department_id: deptData.id, department_name: deptData.department_name, lines: [], stations: [] };
+  //                   factory.departments.push(department);
+  //               }
+
+  //               deptData.stations?.forEach(stationData => {
+  //                   if (!department.stations.some(s => s.station_id === stationData.id)) {
+  //                       department.stations.push({ station_id: stationData.id, station_name: stationData.station_name });
+  //                   }
+  //               });
+
+  //               deptData.lines?.forEach(lineData => {
+  //                   let line = department.lines.find(l => l.line_id === lineData.id);
+  //                   if (!line) {
+  //                       line = { line_id: lineData.id, line_name: lineData.line_name, sublines: [], stations: [] };
+  //                       department.lines.push(line);
+  //                   }
+  //               });
+  //           });
+  //       });
+
+  //       const nestedStructures = Array.from(factoriesMap.values());
+  //       setFactoryStructures(nestedStructures);
+  //       const uniqueHqs = Array.from(hqMap, ([id, name]) => ({ id, name }));
+  //       setHqs(uniqueHqs);
+
+  //       // ### KEY CHANGE ###: Set defaults to 'all' to make the form instantly usable
+  //       if (uniqueHqs.length > 0) {
+  //           const firstHqId = uniqueHqs[0].id;
+  //           setSelectedHq(firstHqId);
+  //           const firstFactory = nestedStructures.find(f => f.hq === firstHqId);
+  //           if (firstFactory) {
+  //               setSelectedFactory(firstFactory.factory_id);
+  //               // Set the rest to "all" to make the form complete initially
+  //               setSelectedDepartment('all');
+  //               setSelectedLine('all');
+  //               setSelectedSubline('all');
+  //               setSelectedStation('all');
+  //           }
+  //       }
+  //     } catch (err) { setError('Failed to load factory structure data.'); } 
+  //     finally { setIsLoading(false); }
+  //   };
+  //   fetchAndProcessStructures();
+  // }, []);
+
+
+// ... (keep all code above this useEffect the same) ...
+
   useEffect(() => {
     const fetchAndProcessStructures = async () => {
       setIsLoading(true);
@@ -897,19 +976,46 @@ const Plan = () => {
                     factory.departments.push(department);
                 }
 
+                // Process stations directly under the department
                 deptData.stations?.forEach(stationData => {
                     if (!department.stations.some(s => s.station_id === stationData.id)) {
                         department.stations.push({ station_id: stationData.id, station_name: stationData.station_name });
                     }
                 });
 
+                // ### START OF FIX ###
+                // Process lines and their nested children
                 deptData.lines?.forEach(lineData => {
                     let line = department.lines.find(l => l.line_id === lineData.id);
                     if (!line) {
                         line = { line_id: lineData.id, line_name: lineData.line_name, sublines: [], stations: [] };
                         department.lines.push(line);
                     }
+
+                    // Process stations directly under the line
+                    lineData.stations?.forEach(stationData => {
+                        if (!line.stations.some(s => s.station_id === stationData.id)) {
+                            line.stations.push({ station_id: stationData.id, station_name: stationData.station_name });
+                        }
+                    });
+
+                    // Process sublines under the line
+                    lineData.sublines?.forEach(sublineData => {
+                        let subline = line.sublines.find(sl => sl.subline_id === sublineData.id);
+                        if (!subline) {
+                            subline = { subline_id: sublineData.id, subline_name: sublineData.subline_name, stations: [] };
+                            line.sublines.push(subline);
+                        }
+                        
+                        // Process stations under the subline
+                        sublineData.stations?.forEach(stationData => {
+                            if (!subline.stations.some(s => s.station_id === stationData.id)) {
+                                subline.stations.push({ station_id: stationData.id, station_name: stationData.station_name });
+                            }
+                        });
+                    });
                 });
+                // ### END OF FIX ###
             });
         });
 
@@ -917,15 +1023,13 @@ const Plan = () => {
         setFactoryStructures(nestedStructures);
         const uniqueHqs = Array.from(hqMap, ([id, name]) => ({ id, name }));
         setHqs(uniqueHqs);
-
-        // ### KEY CHANGE ###: Set defaults to 'all' to make the form instantly usable
+        
         if (uniqueHqs.length > 0) {
             const firstHqId = uniqueHqs[0].id;
             setSelectedHq(firstHqId);
             const firstFactory = nestedStructures.find(f => f.hq === firstHqId);
             if (firstFactory) {
                 setSelectedFactory(firstFactory.factory_id);
-                // Set the rest to "all" to make the form complete initially
                 setSelectedDepartment('all');
                 setSelectedLine('all');
                 setSelectedSubline('all');
@@ -937,6 +1041,14 @@ const Plan = () => {
     };
     fetchAndProcessStructures();
   }, []);
+
+// ... (the rest of your component remains the same) ...
+
+
+
+
+
+
 
   // ... (rest of the component is unchanged) ...
   useEffect(() => { if (timeView === 'Weekly') { const monthIndex = MONTHS.indexOf(selectedMonth); const weeks = getWeeksForMonth(selectedYear, monthIndex); if (weeks.length > 0 && !selectedWeek) { setSelectedWeek(weeks[0].value); } else if (weeks.length === 0) { setSelectedWeek(null); } } else { setSelectedWeek(null); } }, [selectedMonth, selectedYear, timeView, selectedWeek]);
