@@ -741,12 +741,14 @@ def process_level1_update(employee):
 
         obj, created = SkillMatrix.objects.update_or_create(
             employee=employee,
-            hierarchy=hierarchy,
+            level= level,
+            # hierarchy=hierarchy,
             defaults={
                 "employee_name": f"{employee.first_name} {employee.last_name}",
                 "emp_id": employee.emp_id,
                 "doj": employee.date_of_joining,
-                "level": level,
+                 "hierarchy":hierarchy,
+                # "level": level,
             }
         )
 
@@ -1070,11 +1072,12 @@ def update_skill_matrix_on_evaluation_save(sender, instance, created, **kwargs):
         obj, created = SkillMatrix.objects.update_or_create(
             employee=employee,
             hierarchy=hierarchy,
-            level=level,
+            
             defaults={
                 "employee_name": f"{employee.first_name} {employee.last_name}",
                 "emp_id": employee.emp_id,
                 "doj": trainee_info.doj,
+                "level":level,
             }
         )
         if verbose:
