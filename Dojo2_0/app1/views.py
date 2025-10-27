@@ -3532,12 +3532,18 @@ from .serializers import TraineeInfoSerializer
 
 
 
-from django.core.exceptions import ObjectDoesNotExist
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.exceptions import ValidationError
-from .models import TraineeInfo, OJTScore, OJTTopic, OJTScoreRange, OJTPassingCriteria, Station
+from .models import TraineeInfo
 from .serializers import TraineeInfoSerializer
+
+
+from django.db.models import Sum
+from rest_framework import viewsets, status
+from rest_framework.response import Response
+from .models import TraineeInfo, OJTScore, OJTTopic, OJTScoreRange, OJTPassingCriteria
+from .serializers import TraineeInfoSerializer
+from .signals import run_after_delay,update_skill_matrix
 
 class TraineeInfoViewSet(viewsets.ModelViewSet):
     """
@@ -3548,27 +3554,22 @@ class TraineeInfoViewSet(viewsets.ModelViewSet):
     serializer_class = TraineeInfoSerializer
 
     def get_queryset(self):
+        """
+        Filters the queryset based on 'emp_id' and 'station_id' from the query parameters.
+        """
         queryset = super().get_queryset()
-        trainer_id = self.request.query_params.get('trainer_id')
-        station = self.request.query_params.get('station')
 
-        if trainer_id:
-            queryset = queryset.filter(trainer_id=trainer_id)
-        
-        if station:
-            try:
-                # Try to interpret station as a numeric ID
-                station_id = int(station)
-                queryset = queryset.filter(station_id=station_id)
-            except ValueError:
-                # Fallback to station name, but warn about ambiguity
-                try:
-                    station_obj = Station.objects.get(station_name=station)
-                    queryset = queryset.filter(station=station_obj)
-                except Station.DoesNotExist:
-                    raise ValidationError({"station": f"No Station found with name '{station}'"})
-                except Station.MultipleObjectsReturned:
-                    raise ValidationError({"station": f"Multiple Stations found with name '{station}'. Please use station_id instead."})
+        # Get the parameters sent by the React frontend
+        emp_id = self.request.query_params.get('emp_id')
+        station_id = self.request.query_params.get('station_id')
+
+        # If an emp_id was provided in the URL, filter by it
+        if emp_id:
+            queryset = queryset.filter(emp_id=emp_id)
+
+        # If a station_id was provided in the URL, filter by it
+        if station_id:
+            queryset = queryset.filter(station_id=station_id)
 
         return queryset
 
@@ -3615,6 +3616,7 @@ class TraineeInfoViewSet(viewsets.ModelViewSet):
 
     #         trainee.save(update_fields=["status"])
     #     return trainee.status
+
 
     def perform_recalculate_status(self, trainee):
         """
@@ -3718,12 +3720,33 @@ class TraineeInfoViewSet(viewsets.ModelViewSet):
         trainee.save(update_fields=["status"])
         return trainee.status
 
-        
+
+    def trigger_skill_matrix_update(self, trainee):
+        """Fires the skill matrix update after status is calculated."""
+        # Only trigger if the final status is 'Pass'
+        if trainee.status == "Pass":
+            try:
+                employee = MasterTable.objects.get(emp_id=trainee.emp_id)
+                station_object = trainee.station
+                
+                # Since TraineeInfo doesn't directly hold the Level, we infer it from a score
+                first_score = OJTScore.objects.filter(trainee=trainee).first()
+                if not first_score: return
+
+                level_object = first_score.topic.level
+                
+                # Trigger the check after the status is definitely saved
+                run_after_delay(update_skill_matrix, 5, employee, station_object, level_object, True)
+            except Exception as e:
+                print(f"[ERROR] Failed to trigger skill matrix update: {e}")
+
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         trainee = serializer.save()
         self.perform_recalculate_status(trainee)
+        self.trigger_skill_matrix_update(trainee) # <--- ADDED HERE
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
@@ -3733,8 +3756,8 @@ class TraineeInfoViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         trainee = serializer.save()
         self.perform_recalculate_status(trainee)
+        self.trigger_skill_matrix_update(trainee) # <--- ADDED HERE
         return Response(serializer.data)
-
 
 
 
