@@ -397,3 +397,124 @@ admin.site.register(OJTScoreRange)
 
 admin.site.register(OJTPassingCriteria)
 admin.site.register(EvaluationCriterion)
+
+
+
+from django.contrib import admin
+from .models import EvaluationLevel2
+
+@admin.register(EvaluationLevel2)
+class EvaluationLevel2Admin(admin.ModelAdmin):
+    # Columns to display in the list view
+    list_display = (
+        'employee', 
+        'station_name', 
+        'department', 
+        'level', 
+        'total_marks', 
+        'status', 
+        'evaluation_date',
+        'created_at'
+    )
+
+    # Fields that can be searched
+    search_fields = (
+        'employee__first_name', 
+        'employee__last_name', 
+        'employee__emp_id',
+        'station_name',
+        'department__department_name'
+    )
+
+    # Filters on the right sidebar
+    list_filter = ('status', 'level', 'department', 'evaluation_date')
+
+    # Fields to make read-only in admin form
+    readonly_fields = (
+        'snapshot_full_name', 
+        'snapshot_department', 
+        'snapshot_designation', 
+        'snapshot_date_of_joining',
+        'created_at',
+        'updated_at'
+    )
+
+    # Optional: ordering in list view
+    ordering = ('-evaluation_date', 'employee__emp_id')
+
+    # Optional: grouping fields in form
+    fieldsets = (
+        ('Employee Info', {
+            'fields': ('employee', 'snapshot_full_name', 'snapshot_designation', 'snapshot_department', 'snapshot_date_of_joining')
+        }),
+        ('Evaluation Details', {
+            'fields': ('station_name', 'level', 'department', 'evaluation_date', 'dojo_incharge_name', 'area_incharge_name', 'total_marks', 'status')
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at')
+        }),
+    )
+
+
+
+from django.contrib import admin
+from .models import OperatorObservanceSheet, Topic
+import json
+
+@admin.register(OperatorObservanceSheet)
+class OperatorObservanceSheetAdmin(admin.ModelAdmin):
+    # Fields to display in list view
+    list_display = (
+        'operator_name',
+        'level',
+        'process_name',
+        'supervisor_name',
+        'score',
+        'marks_obtained',
+        'result',
+        'evaluation_period'
+    )
+
+    # Searchable fields
+    search_fields = ('operator_name', 'process_name', 'supervisor_name', 'level')
+
+    # Filters
+    list_filter = ('level', 'result', 'process_name')
+
+    # ManyToMany fields display
+    filter_horizontal = ('topics',)
+
+    # Readonly JSON display for marks and signatures
+    readonly_fields = ('pretty_marks', 'pretty_signatures')
+
+    # Organize fields in form
+    fieldsets = (
+        ('Operator Info', {
+            'fields': ('operator_name', 'operator_category', 'process_name', 'supervisor_name', 'level')
+        }),
+        ('Evaluation Period', {
+            'fields': ('evaluation_start_date', 'evaluation_end_date')
+        }),
+        ('Marks & Topics', {
+            'fields': ('topics', 'pretty_marks')
+        }),
+        ('Scores & Result', {
+            'fields': ('score', 'marks_obtained', 'value', 'result', 'pretty_signatures', 'remarks')
+        }),
+    )
+
+    # Custom display for JSONField marks
+    def pretty_marks(self, obj):
+        return f"<pre>{json.dumps(obj.marks, indent=2)}</pre>"
+    pretty_marks.allow_tags = True
+    pretty_marks.short_description = 'Marks'
+
+    def pretty_signatures(self, obj):
+        return f"<pre>{json.dumps(obj.signatures, indent=2)}</pre>"
+    pretty_signatures.allow_tags = True
+    pretty_signatures.short_description = 'Signatures'
+
+    # Optional: display evaluation period in list view
+    def evaluation_period(self, obj):
+        return f"{obj.evaluation_start_date} → {obj.evaluation_end_date}"
+    evaluation_period.short_description = "Evaluation Period"

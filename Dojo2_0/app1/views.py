@@ -3531,12 +3531,307 @@ from .serializers import TraineeInfoSerializer
 
 
 
-from django.core.exceptions import ObjectDoesNotExist
+# from django.core.exceptions import ObjectDoesNotExist
+# from rest_framework import viewsets, status
+# from rest_framework.response import Response
+# from rest_framework.exceptions import ValidationError
+# from .models import TraineeInfo, OJTScore, OJTTopic, OJTScoreRange, OJTPassingCriteria, Station
+# from .serializers import TraineeInfoSerializer
+
+# class TraineeInfoViewSet(viewsets.ModelViewSet):
+#     """
+#     API endpoint to create, update, list, and delete trainees with nested OJT scores.
+#     Status is updated after saving scores.
+#     """
+#     queryset = TraineeInfo.objects.all()
+#     serializer_class = TraineeInfoSerializer
+
+#     def get_queryset(self):
+#         queryset = super().get_queryset()
+#         trainer_id = self.request.query_params.get('trainer_id')
+#         station = self.request.query_params.get('station')
+
+#         if trainer_id:
+#             queryset = queryset.filter(trainer_id=trainer_id)
+        
+#         if station:
+#             try:
+#                 # Try to interpret station as a numeric ID
+#                 station_id = int(station)
+#                 queryset = queryset.filter(station_id=station_id)
+#             except ValueError:
+#                 # Fallback to station name, but warn about ambiguity
+#                 try:
+#                     station_obj = Station.objects.get(station_name=station)
+#                     queryset = queryset.filter(station=station_obj)
+#                 except Station.DoesNotExist:
+#                     raise ValidationError({"station": f"No Station found with name '{station}'"})
+#                 except Station.MultipleObjectsReturned:
+#                     raise ValidationError({"station": f"Multiple Stations found with name '{station}'. Please use station_id instead."})
+
+#         return queryset
+
+#     # def perform_recalculate_status(self, trainee):
+#     #     """Recalculate trainee status based on scores and criteria."""
+#     #     if not trainee.scores.exists():
+#     #         return trainee.status
+
+#     #     for score in trainee.scores.all():
+#     #         department = score.topic.department
+#     #         level = score.topic.level
+#     #         day = score.day
+
+#     #         try:
+#     #             score_range = OJTScoreRange.objects.get(department=department, level=level)
+#     #         except OJTScoreRange.DoesNotExist:
+#     #             continue  # skip if no range defined
+
+#     #         total_score = OJTScore.objects.filter(
+#     #             trainee=trainee,
+#     #             topic__department=department,
+#     #             topic__level=level,
+#     #             day=day
+#     #         ).aggregate(total=Sum("score"))["total"] or 0
+
+#     #         total_topics = OJTTopic.objects.filter(department=department, level=level).count()
+
+#     #         if total_topics > 0:
+#     #             max_possible = total_topics * score_range.max_score
+#     #             percentage = (total_score / max_possible) * 100
+#     #         else:
+#     #             percentage = 0
+
+#     #         # Passing criteria lookup
+#     #         criteria = (
+#     #             OJTPassingCriteria.objects.filter(department=department, level=level, day=day).first()
+#     #             or OJTPassingCriteria.objects.filter(department=department, level=level, day__isnull=True).first()
+#     #         )
+
+#     #         if criteria and percentage >= criteria.percentage:
+#     #             trainee.status = "Pass"
+#     #         else:
+#     #             trainee.status = "Fail"
+
+#     #         trainee.save(update_fields=["status"])
+#     #     return trainee.status
+
+#     # def perform_recalculate_status(self, trainee):
+#     #     """
+#     #     Recalculate trainee status.
+#     #     Status is 'Pass' only if ALL required OJT days meet the passing criteria.
+#     #     Status is 'Fail' if ANY required OJT day fails the passing criteria.
+#     #     Status is 'Pending' if not all required OJT days have been scored.
+#     #     """
+#     #     # Determine the Department and Level from the trainee's associated topics/scores.
+#     #     # Assuming the department/level is consistent across all topics for a trainee.
+#     #     first_score = trainee.scores.first()
+#     #     if not first_score:
+#     #         trainee.status = "Pending"
+#     #         trainee.save(update_fields=["status"])
+#     #         return trainee.status
+
+#     #     department = first_score.topic.department
+#     #     level = first_score.topic.level
+
+#     #     # 1. Get all REQUIRED OJT Days for this Department and Level
+#     #     required_days = OJTDay.objects.filter(department=department, level=level).distinct()
+        
+#     #     # If no days are defined, assume 'Pending' or a special case might be needed.
+#     #     if not required_days.exists():
+#     #         trainee.status = "Pending"
+#     #         trainee.save(update_fields=["status"])
+#     #         return trainee.status
+
+#     #     # 2. Get the Score Range and Max Score per Topic
+#     #     try:
+#     #         score_range = OJTScoreRange.objects.get(department=department, level=level)
+#     #         max_topic_score = score_range.max_score
+#     #     except OJTScoreRange.DoesNotExist:
+#     #         # Cannot calculate status without a score range.
+#     #         trainee.status = "Pending"
+#     #         trainee.save(update_fields=["status"])
+#     #         return trainee.status
+
+#     #     all_days_passed = True
+        
+#     #     for day in required_days:
+#     #         # 3. Get the Passing Criteria for the current Day (or general criteria)
+#     #         criteria = (
+#     #             OJTPassingCriteria.objects.filter(department=department, level=level, day=day).first()
+#     #             or OJTPassingCriteria.objects.filter(department=department, level=level, day__isnull=True).first()
+#     #         )
+
+#     #         # If no criteria, we can't determine pass/fail for this day.
+#     #         if not criteria:
+#     #             # Treat as 'Pending' if we can't determine pass/fail for a required day
+#     #             trainee.status = "Pending"
+#     #             trainee.save(update_fields=["status"])
+#     #             return trainee.status
+
+#     #         required_percentage = criteria.percentage
+
+#     #         # 4. Calculate total score and max possible score for this Day
+            
+#     #         # Topics for this Day's OJT (assuming ALL topics apply to ALL days if not filtered)
+#     #         # A more robust system might need OJTTopic.objects.filter(department=department, level=level, day=day)
+#     #         # but based on your models, all topics are for a department/level, so we'll use that:
+#     #         relevant_topics = OJTTopic.objects.filter(department=department, level=level)
+#     #         total_topics = relevant_topics.count()
+
+#     #         # Sum of actual scores for this Trainee for this Day
+#     #         daily_actual_score = OJTScore.objects.filter(
+#     #             trainee=trainee,
+#     #             day=day,
+#     #             topic__in=relevant_topics  # Ensures we only sum scores for relevant topics
+#     #         ).aggregate(total=Sum("score"))["total"] or 0
+            
+#     #         # Check how many topics for this day have been scored.
+#     #         # If the number of scores is less than the total topics, the day is incomplete.
+#     #         scores_count = OJTScore.objects.filter(trainee=trainee, day=day, topic__in=relevant_topics).count()
+            
+#     #         # If not all scores are in, the overall status is "Pending" and we can stop.
+#     #         if scores_count < total_topics:
+#     #             trainee.status = "Pending"
+#     #             trainee.save(update_fields=["status"])
+#     #             return trainee.status
+            
+#     #         # 5. Calculate Percentage
+#     #         max_possible_score = total_topics * max_topic_score
+            
+#     #         if max_possible_score > 0:
+#     #             daily_percentage = (daily_actual_score / max_possible_score) * 100
+#     #         else:
+#     #             daily_percentage = 0 # Can happen if total_topics is 0
+            
+#     #         # 6. Check Pass/Fail for this Day
+#     #         if daily_percentage < required_percentage:
+#     #             all_days_passed = False
+#     #             break  # Fail on the first failed day
+
+#     #     # 7. Set final Trainee Status
+#     #     if all_days_passed:
+#     #         trainee.status = "Pass"
+#     #     else:
+#     #         trainee.status = "Fail"
+
+#     #     trainee.save(update_fields=["status"])
+#     #     return trainee.status
+
+        
+#     # def create(self, request, *args, **kwargs):
+#     #     serializer = self.get_serializer(data=request.data)
+#     #     serializer.is_valid(raise_exception=True)
+#     #     trainee = serializer.save()
+#     #     self.perform_recalculate_status(trainee)
+#     #     return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+#     # def update(self, request, *args, **kwargs):
+#     #     partial = kwargs.pop('partial', False)
+#     #     instance = self.get_object()
+#     #     serializer = self.get_serializer(instance, data=request.data, partial=partial)
+#     #     serializer.is_valid(raise_exception=True)
+#     #     trainee = serializer.save()
+#     #     self.perform_recalculate_status(trainee)
+#     #     return Response(serializer.data)
+
+#     def perform_recalculate_status(self, trainee):
+    
+#         # Get all levels associated with the trainee's scores
+#         levels = OJTTopic.objects.filter(scores__trainee=trainee).values('level').distinct()
+        
+#         if not levels:
+#             trainee.status = "Pending"
+#             trainee.save(update_fields=["status"])
+#             return trainee.status
+
+#         level_statuses = {}
+#         for level_data in levels:
+#             level = level_data['level']
+#             level_obj = Level.objects.get(id=level)
+#             department = trainee.scores.first().topic.department  # Assuming department is consistent
+
+#             # Get required OJT days for this department and level
+#             required_days = OJTDay.objects.filter(department=department, level=level_obj).distinct()
+            
+#             if not required_days.exists():
+#                 level_statuses[level_obj.level_name] = "Pending"
+#                 continue
+
+#             all_days_passed = True
+#             for day in required_days:
+#                 # Get passing criteria for the current day (or general criteria)
+#                 criteria = (
+#                     OJTPassingCriteria.objects.filter(department=department, level=level_obj, day=day).first()
+#                     or OJTPassingCriteria.objects.filter(department=department, level=level_obj, day__isnull=True).first()
+#                 )
+
+#                 if not criteria:
+#                     level_statuses[level_obj.level_name] = "Pending"
+#                     all_days_passed = False
+#                     break
+
+#                 required_percentage = criteria.percentage
+
+#                 # Get topics for this department and level
+#                 relevant_topics = OJTTopic.objects.filter(department=department, level=level_obj)
+#                 total_topics = relevant_topics.count()
+
+#                 # Get score range for this level
+#                 try:
+#                     score_range = OJTScoreRange.objects.get(department=department, level=level_obj)
+#                     max_topic_score = score_range.max_score
+#                 except OJTScoreRange.DoesNotExist:
+#                     level_statuses[level_obj.level_name] = "Pending"
+#                     all_days_passed = False
+#                     break
+
+#                 # Sum of actual scores for this trainee, day, and level
+#                 daily_actual_score = OJTScore.objects.filter(
+#                     trainee=trainee,
+#                     day=day,
+#                     topic__in=relevant_topics
+#                 ).aggregate(total=Sum("score"))["total"] or 0
+
+#                 # Check if all topics for this day have been scored
+#                 scores_count = OJTScore.objects.filter(
+#                     trainee=trainee,
+#                     day=day,
+#                     topic__in=relevant_topics
+#                 ).count()
+
+#                 if scores_count < total_topics:
+#                     level_statuses[level_obj.level_name] = "Pending"
+#                     all_days_passed = False
+#                     break
+
+#                 # Calculate percentage
+#                 max_possible_score = total_topics * max_topic_score
+#                 daily_percentage = (daily_actual_score / max_possible_score * 100) if max_possible_score > 0 else 0
+
+#                 # Check pass/fail for this day
+#                 if daily_percentage < required_percentage:
+#                     all_days_passed = False
+#                     break
+
+#             level_statuses[level_obj.level_name] = "Pass" if all_days_passed else "Fail"
+
+#         # If only one level is relevant, update trainee.status
+#         if len(level_statuses) == 1:
+#             trainee.status = list(level_statuses.values())[0]
+#         else:
+#             # If multiple levels, set status to 'Pending' or define a strategy
+#             trainee.status = "Pending" if any(status == "Pending" for status in level_statuses.values()) else "Mixed"
+        
+#         trainee.save(update_fields=["status"])
+#         return trainee.status
+
+
+from django.db.models import Sum
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.exceptions import ValidationError
-from .models import TraineeInfo, OJTScore, OJTTopic, OJTScoreRange, OJTPassingCriteria, Station
+from .models import TraineeInfo, OJTScore, OJTTopic, OJTScoreRange, OJTPassingCriteria
 from .serializers import TraineeInfoSerializer
+from .signals import run_after_delay,update_skill_matrix
 
 class TraineeInfoViewSet(viewsets.ModelViewSet):
     """
@@ -3547,27 +3842,22 @@ class TraineeInfoViewSet(viewsets.ModelViewSet):
     serializer_class = TraineeInfoSerializer
 
     def get_queryset(self):
+        """
+        Filters the queryset based on 'emp_id' and 'station_id' from the query parameters.
+        """
         queryset = super().get_queryset()
-        trainer_id = self.request.query_params.get('trainer_id')
-        station = self.request.query_params.get('station')
 
-        if trainer_id:
-            queryset = queryset.filter(trainer_id=trainer_id)
-        
-        if station:
-            try:
-                # Try to interpret station as a numeric ID
-                station_id = int(station)
-                queryset = queryset.filter(station_id=station_id)
-            except ValueError:
-                # Fallback to station name, but warn about ambiguity
-                try:
-                    station_obj = Station.objects.get(station_name=station)
-                    queryset = queryset.filter(station=station_obj)
-                except Station.DoesNotExist:
-                    raise ValidationError({"station": f"No Station found with name '{station}'"})
-                except Station.MultipleObjectsReturned:
-                    raise ValidationError({"station": f"Multiple Stations found with name '{station}'. Please use station_id instead."})
+        # Get the parameters sent by the React frontend
+        emp_id = self.request.query_params.get('emp_id')
+        station_id = self.request.query_params.get('station_id')
+
+        # If an emp_id was provided in the URL, filter by it
+        if emp_id:
+            queryset = queryset.filter(emp_id=emp_id)
+
+        # If a station_id was provided in the URL, filter by it
+        if station_id:
+            queryset = queryset.filter(station_id=station_id)
 
         return queryset
 
@@ -3614,6 +3904,7 @@ class TraineeInfoViewSet(viewsets.ModelViewSet):
 
     #         trainee.save(update_fields=["status"])
     #     return trainee.status
+
 
     def perform_recalculate_status(self, trainee):
         """
@@ -3717,12 +4008,33 @@ class TraineeInfoViewSet(viewsets.ModelViewSet):
         trainee.save(update_fields=["status"])
         return trainee.status
 
-        
+
+    def trigger_skill_matrix_update(self, trainee):
+        """Fires the skill matrix update after status is calculated."""
+        # Only trigger if the final status is 'Pass'
+        if trainee.status == "Pass":
+            try:
+                employee = MasterTable.objects.get(emp_id=trainee.emp_id)
+                station_object = trainee.station
+                
+                # Since TraineeInfo doesn't directly hold the Level, we infer it from a score
+                first_score = OJTScore.objects.filter(trainee=trainee).first()
+                if not first_score: return
+
+                level_object = first_score.topic.level
+                
+                # Trigger the check after the status is definitely saved
+                run_after_delay(update_skill_matrix, 5, employee, station_object, level_object, True)
+            except Exception as e:
+                print(f"[ERROR] Failed to trigger skill matrix update: {e}")
+
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         trainee = serializer.save()
         self.perform_recalculate_status(trainee)
+        self.trigger_skill_matrix_update(trainee) # <--- ADDED HERE
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     def update(self, request, *args, **kwargs):
@@ -3732,7 +4044,9 @@ class TraineeInfoViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         trainee = serializer.save()
         self.perform_recalculate_status(trainee)
+        self.trigger_skill_matrix_update(trainee) # <--- ADDED HERE
         return Response(serializer.data)
+
 
 
 

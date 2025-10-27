@@ -779,3 +779,311 @@ def check_level1_from_productivity(sender, instance, **kwargs):
 def check_level1_from_quality(sender, instance, **kwargs):
     if instance.status == "PASS":
         run_after_delay(process_level1_update, 3, instance.employee)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# from django.db.models.signals import post_save
+# from django.dispatch import receiver
+# from .models import EvaluationLevel2, TraineeInfo, OperatorObservanceSheet, SkillMatrix, HierarchyStructure
+
+# @receiver(post_save, sender=EvaluationLevel2)
+# def update_skill_matrix_on_evaluation_save(sender, instance, created, **kwargs):
+#     """
+#     Signal to update SkillMatrix when EvaluationLevel2 is saved with status 'Pass' or 'Re-evaluation Pass',
+#     and both TraineeInfo and OperatorObservanceSheet are also passed for the same employee, station, and level.
+#     """
+#     # Only proceed if the evaluation status is 'Pass' or 'Re-evaluation Pass'
+#     if instance.status not in [EvaluationLevel2.STATUS_PASS, EvaluationLevel2.STATUS_RE_EVAL_PASS]:
+#         return
+
+#     employee = instance.employee
+#     station_name = instance.station_name
+#     level = instance.level
+#     verbose = True  # For logging/debugging; set to False in production
+
+#     if verbose:
+#         print("=" * 80)
+#         print(f"[SkillMatrix Signal] Checking update for Employee: {employee.emp_id}, "
+#               f"Station: {station_name}, Level: {level.level_name if level else '❌ None'}")
+
+#     # Step 1: Check TraineeInfo (OJT) status
+#     try:
+#         trainee_info = TraineeInfo.objects.filter(
+#             emp_id=employee.emp_id,
+#             station__station_name=station_name
+#         ).first()
+#     except TraineeInfo.DoesNotExist:
+#         trainee_info = None
+
+#     if not trainee_info:
+#         if verbose:
+#             print(f"[SkillMatrix Signal][ERROR] No TraineeInfo found for Employee: {employee.emp_id} "
+#                   f"at Station: {station_name}")
+#             print("=" * 80)
+#         return
+
+#     ojt_pass = trainee_info.status == "Pass"
+#     if verbose:
+#         print(f"[SkillMatrix Signal] Found TraineeInfo → Name: {trainee_info.trainee_name}, "
+#               f"Status: {trainee_info.status}, DOJ: {trainee_info.doj}")
+#         print(f"[SkillMatrix Signal] OJT passed = {ojt_pass}")
+
+#     # Step 2: Check OperatorObservanceSheet status
+#     try:
+#         observance_sheet = OperatorObservanceSheet.objects.filter(
+#             operator_name=f"{employee.first_name} {employee.last_name}",
+#             process_name=station_name,
+#             level=level.level_name,  # Assuming level.level_name matches OperatorObservanceSheet.level
+#             result="Pass"  # Assuming 'result' field indicates pass/fail
+#         ).first()
+#     except OperatorObservanceSheet.DoesNotExist:
+#         observance_sheet = None
+
+#     if not observance_sheet:
+#         if verbose:
+#             print(f"[SkillMatrix Signal][ERROR] No OperatorObservanceSheet found for Employee: {employee.emp_id} "
+#                   f"at Station: {station_name}, Level: {level.level_name}")
+#             print("=" * 80)
+#         return
+
+#     observance_pass = observance_sheet.result == "Qualified"
+#     if verbose:
+#         print(f"[SkillMatrix Signal] Found OperatorObservanceSheet → Operator: {observance_sheet.operator_name}, "
+#               f"Result: {observance_sheet.result}")
+#         print(f"[SkillMatrix Signal] Observance Sheet passed = {observance_pass}")
+
+#     # Step 3: Check EvaluationLevel2 status (already confirmed by signal condition)
+#     eval_pass = instance.status in [EvaluationLevel2.STATUS_PASS, EvaluationLevel2.STATUS_RE_EVAL_PASS]
+#     if verbose:
+#         print(f"[SkillMatrix Signal] Evaluation passed = {eval_pass}")
+
+#     # Step 4: Update or create SkillMatrix if all three conditions are met
+#     if ojt_pass and eval_pass and observance_pass:
+#         # Get HierarchyStructure for the station
+#         hierarchy = HierarchyStructure.objects.filter(station__station_name=station_name).first()
+#         if not hierarchy:
+#             if verbose:
+#                 print(f"[SkillMatrix Signal][ERROR] No HierarchyStructure found for Station: {station_name}")
+#                 print("=" * 80)
+#             return
+
+#         obj, created = SkillMatrix.objects.update_or_create(
+#             employee=employee,
+#             hierarchy=hierarchy,
+#             level=level,
+#             defaults={
+#                 "employee_name": f"{employee.first_name} {employee.last_name}",
+#                 "emp_id": employee.emp_id,
+#                 "doj": trainee_info.doj,  # Using DOJ from TraineeInfo as it's likely the most reliable source
+#             }
+#         )
+#         if verbose:
+#             if created:
+#                 print(f"[SkillMatrix Signal] ✅ SkillMatrix created for Employee: {employee.emp_id}")
+#             else:
+#                 print(f"[SkillMatrix Signal] 🔄 SkillMatrix updated for Employee: {employee.emp_id}")
+#     else:
+#         if verbose:
+#             print(f"[SkillMatrix Signal] ❌ Not updating. Conditions → OJT: {ojt_pass}, "
+#                   f"Eval: {eval_pass}, Observance: {observance_pass}")
+#             print("=" * 80)
+
+
+
+
+# from django.db.models.signals import post_save
+# from django.dispatch import receiver
+# from .models import EvaluationLevel2, TraineeInfo, SkillMatrix, HierarchyStructure
+
+# @receiver(post_save, sender=EvaluationLevel2)
+# def update_skill_matrix_on_evaluation_save(sender, instance, created, **kwargs):
+#     """
+#     Signal to update SkillMatrix when EvaluationLevel2 is saved with status 'Pass' or 'Re-evaluation Pass',
+#     and TraineeInfo is passed for the same employee, station, and level.
+#     """
+#     if instance.status not in [EvaluationLevel2.STATUS_PASS, EvaluationLevel2.STATUS_RE_EVAL_PASS]:
+#         return
+
+#     employee = instance.employee
+#     station_name = instance.station_name.replace("+", " ")  # Normalize: Replace '+' with space
+#     level = instance.level
+#     level_name = level.level_name  # e.g., "Level 2"
+#     verbose = True
+
+#     if verbose:
+#         print("=" * 80)
+#         print(f"[SkillMatrix Signal] Checking update for Employee: {employee.emp_id}, "
+#               f"Station: {station_name}, Level: {level_name}")
+
+#     # Step 1: Check TraineeInfo (OJT) status
+#     try:
+#         trainee_info = TraineeInfo.objects.filter(
+#             emp_id=employee.emp_id,
+#             station__station_name=station_name
+#         ).first()
+#     except TraineeInfo.DoesNotExist:
+#         trainee_info = None
+
+#     if not trainee_info:
+#         if verbose:
+#             print(f"[SkillMatrix Signal][ERROR] No TraineeInfo found for Employee: {employee.emp_id} "
+#                   f"at Station: {station_name}")
+#             print("=" * 80)
+#         return
+
+#     ojt_pass = trainee_info.status == "Pass"
+#     if verbose:
+#         print(f"[SkillMatrix Signal] Found TraineeInfo → Name: {trainee_info.trainee_name}, "
+#               f"Status: {trainee_info.status}, DOJ: {trainee_info.doj}")
+#         print(f"[SkillMatrix Signal] OJT passed = {ojt_pass}")
+
+#     # Step 2: Check EvaluationLevel2 status
+#     eval_pass = instance.status in [EvaluationLevel2.STATUS_PASS, EvaluationLevel2.STATUS_RE_EVAL_PASS]
+#     if verbose:
+#         print(f"[SkillMatrix Signal] Evaluation passed = {eval_pass}")
+
+#     # Step 3: Update or create SkillMatrix if both conditions are met
+#     if ojt_pass and eval_pass:
+#         hierarchy = HierarchyStructure.objects.filter(station__station_name=station_name).first()
+#         if not hierarchy:
+#             if verbose:
+#                 print(f"[SkillMatrix Signal][ERROR] No HierarchyStructure found for Station: {station_name}")
+#                 print("=" * 80)
+#             return
+
+#         obj, created = SkillMatrix.objects.update_or_create(
+#             employee=employee,
+#             hierarchy=hierarchy,
+#             level=level,
+#             defaults={
+#                 "employee_name": f"{employee.first_name} {employee.last_name}",
+#                 "emp_id": employee.emp_id,
+#                 "doj": trainee_info.doj,
+#             }
+#         )
+#         if verbose:
+#             if created:
+#                 print(f"[SkillMatrix Signal] ✅ SkillMatrix created for Employee: {employee.emp_id}")
+#             else:
+#                 print(f"[SkillMatrix Signal] 🔄 SkillMatrix updated for Employee: {employee.emp_id}")
+#     else:
+#         if verbose:
+#             print(f"[SkillMatrix Signal] ❌ Not updating. Conditions → OJT: {ojt_pass}, Eval: {eval_pass}")
+#             print("=" * 80)
+
+
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from .models import EvaluationLevel2, TraineeInfo, SkillMatrix, HierarchyStructure, OperatorObservanceSheet
+
+@receiver(post_save, sender=EvaluationLevel2)
+def update_skill_matrix_on_evaluation_save(sender, instance, created, **kwargs):
+    """
+    Signal to update SkillMatrix when EvaluationLevel2 is saved with status 'Pass' or 'Re-evaluation Pass',
+    TraineeInfo is passed, and OperatorObservanceSheet has result 'Qualified' for the same employee, station, and level.
+    """
+    if instance.status not in [EvaluationLevel2.STATUS_PASS, EvaluationLevel2.STATUS_RE_EVAL_PASS]:
+        return
+
+    employee = instance.employee
+    station_name = instance.station_name.replace("+", " ")  # Normalize: Replace '+' with space
+    level = instance.level
+    level_name = level.level_name  # e.g., "Level 2"
+    verbose = True
+
+    if verbose:
+        print("=" * 80)
+        print(f"[SkillMatrix Signal] Checking update for Employee: {employee.emp_id}, "
+              f"Station: {station_name}, Level: {level_name}")
+
+    # Step 1: Check TraineeInfo (OJT) status
+    try:
+        trainee_info = TraineeInfo.objects.filter(
+            emp_id=employee.emp_id,
+            station__station_name=station_name
+        ).first()
+    except TraineeInfo.DoesNotExist:
+        trainee_info = None
+
+    if not trainee_info:
+        if verbose:
+            print(f"[SkillMatrix Signal][ERROR] No TraineeInfo found for Employee: {employee.emp_id} "
+                  f"at Station: {station_name}")
+            print("=" * 80)
+        return
+
+    ojt_pass = trainee_info.status == "Pass"
+    if verbose:
+        print(f"[SkillMatrix Signal] Found TraineeInfo → Name: {trainee_info.trainee_name}, "
+              f"Status: {trainee_info.status}, DOJ: {trainee_info.doj}")
+        print(f"[SkillMatrix Signal] OJT passed = {ojt_pass}")
+
+    # Step 2: Check EvaluationLevel2 status
+    eval_pass = instance.status in [EvaluationLevel2.STATUS_PASS, EvaluationLevel2.STATUS_RE_EVAL_PASS]
+    if verbose:
+        print(f"[SkillMatrix Signal] Evaluation passed = {eval_pass}")
+
+    # Step 3: Check OperatorObservanceSheet status
+    try:
+        observance_sheet = OperatorObservanceSheet.objects.filter(
+            operator_name=f"{employee.first_name} {employee.last_name}",
+            process_name=station_name,
+            level=level_name
+        ).last()
+    except OperatorObservanceSheet.DoesNotExist:
+        observance_sheet = None
+
+    if not observance_sheet:
+        if verbose:
+            print(f"[SkillMatrix Signal][ERROR] No OperatorObservanceSheet found for Employee: {employee.emp_id} "
+                  f"at Station: {station_name}, Level: {level_name}")
+            print("=" * 80)
+        return
+
+    observance_pass = observance_sheet.result == "Qualified"
+    if verbose:
+        print(f"[SkillMatrix Signal] Found OperatorObservanceSheet → Operator: {observance_sheet.operator_name}, "
+              f"Result: {observance_sheet.result}")
+        print(f"[SkillMatrix Signal] Observance passed = {observance_pass}")
+
+    # Step 4: Update or create SkillMatrix if all conditions are met
+    if ojt_pass and eval_pass and observance_pass:
+        hierarchy = HierarchyStructure.objects.filter(station__station_name=station_name).first()
+        if not hierarchy:
+            if verbose:
+                print(f"[SkillMatrix Signal][ERROR] No HierarchyStructure found for Station: {station_name}")
+                print("=" * 80)
+            return
+
+        obj, created = SkillMatrix.objects.update_or_create(
+            employee=employee,
+            hierarchy=hierarchy,
+            level=level,
+            defaults={
+                "employee_name": f"{employee.first_name} {employee.last_name}",
+                "emp_id": employee.emp_id,
+                "doj": trainee_info.doj,
+            }
+        )
+        if verbose:
+            if created:
+                print(f"[SkillMatrix Signal] ✅ SkillMatrix created for Employee: {employee.emp_id}")
+            else:
+                print(f"[SkillMatrix Signal] 🔄 SkillMatrix updated for Employee: {employee.emp_id}")
+    else:
+        if verbose:
+            print(f"[SkillMatrix Signal] ❌ Not updating. Conditions → OJT: {ojt_pass}, Eval: {eval_pass}, "
+                  f"Observance: {observance_pass}")
+            print("=" * 80)
