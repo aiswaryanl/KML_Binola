@@ -112,7 +112,7 @@ const EmployeeInfoSection: React.FC<EmployeeInfoSectionProps> = ({
       </div>
 
       {/* Third Row */}
-      <div className="grid grid-cols-3 border-b-2 border-black">
+      <div className="grid grid-cols-2 border-b-2 border-black">
   {/* First column - Max Marks */}
   <div className="border-r-2 border-black p-4 bg-gray-50">
     <div className="flex items-center space-x-2 mb-2">
@@ -131,7 +131,7 @@ const EmployeeInfoSection: React.FC<EmployeeInfoSectionProps> = ({
   </div>
   
   {/* Second column - Obtained Marks */}
-  <div className="border-r-2 border-black p-4 bg-gray-50">
+  {/* <div className="border-r-2 border-black p-4 bg-gray-50">
     <div className="flex items-center space-x-2 mb-2">
       <Award className="w-4 h-4 text-gray-600" />
       <label className="block text-sm font-bold text-black">
@@ -145,7 +145,7 @@ const EmployeeInfoSection: React.FC<EmployeeInfoSectionProps> = ({
       className="w-full p-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
       placeholder="Enter obtained marks"
     />
-  </div>
+  </div> */}
   
   {/* Third column - Trainer Name */}
   <div className="p-4 bg-white">

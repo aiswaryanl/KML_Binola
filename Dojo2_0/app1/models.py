@@ -2908,6 +2908,8 @@ class OperatorObservanceSheet(models.Model):
     result = models.CharField(max_length=20, blank=True, null=True)
     signatures = models.JSONField(default=dict, blank=True, null=True)
     topics = models.ManyToManyField(Topic, related_name='observance_sheets', blank=True)
+    department_id = models.IntegerField(null=True, blank=True)
+    department_name = models.CharField(max_length=255, blank=True, null=True)
     
     def __str__(self):
         return f"{self.operator_name} ({self.level})"

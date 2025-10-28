@@ -529,7 +529,7 @@ const ProductivityEvaluation: React.FC<ProductivityEvaluationProps> = ({
         )}
 
         {/* Add Sequence Button */}
-        <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 border-b-2 border-gray-200">
+        {/* <div className="p-4 bg-gradient-to-r from-blue-50 to-blue-100 border-b-2 border-gray-200">
           <div className="text-center">
             <button
               onClick={onAddSequence}
@@ -539,7 +539,7 @@ const ProductivityEvaluation: React.FC<ProductivityEvaluationProps> = ({
               <span className="font-semibold">Add Sequence</span>
             </button>
           </div>
-        </div>
+        </div> */}
 
         {/* Notes section */}
         <div className="p-6 space-y-6">
